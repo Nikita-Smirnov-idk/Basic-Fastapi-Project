@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
@@ -67,6 +68,15 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
         )
+    
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_DB: int
+    
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def REDIS_URI(self) -> str:
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
@@ -114,6 +124,7 @@ class Settings(BaseSettings):
         )
 
         return self
+
 
 
 settings = Settings()  # type: ignore
