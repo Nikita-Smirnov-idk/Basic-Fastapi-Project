@@ -32,9 +32,11 @@ class Settings(BaseSettings):
     )
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    # 60 minutes * 24 hours * 8 days = 8 days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 5
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    SIGNUP_TOKEN_EXPIRE_MINUTES: int = 30  # Время жизни токена регистрации (15-60 минут)
+    TOKEN_PEPPER: str = secrets.token_urlsafe(32)
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
@@ -69,13 +71,19 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
     
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_DB: int
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""
+
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
     
     @computed_field  # type: ignore[prop-decorator]
     @property
     def REDIS_URI(self) -> str:
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     SMTP_TLS: bool = True

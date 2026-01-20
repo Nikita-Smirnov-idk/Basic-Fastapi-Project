@@ -9,8 +9,8 @@ import jwt
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 
-from app.core import security
 from app.core.config import settings
+from app.services.jwt.tokens import ALGORITHM
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def generate_password_reset_token(email: str) -> str:
     encoded_jwt = jwt.encode(
         {"exp": exp, "nbf": now, "sub": email},
         settings.SECRET_KEY,
-        algorithm=security.ALGORITHM,
+        algorithm=ALGORITHM,
     )
     return encoded_jwt
 
@@ -116,8 +116,25 @@ def generate_password_reset_token(email: str) -> str:
 def verify_password_reset_token(token: str) -> str | None:
     try:
         decoded_token = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[ALGORITHM]
         )
         return str(decoded_token["sub"])
     except InvalidTokenError:
         return None
+
+
+def generate_signup_confirmation_email(email: str, token: str) -> EmailData:
+    """Генерирует email для подтверждения регистрации"""
+    project_name = settings.PROJECT_NAME
+    subject = f"{project_name} - Подтвердите регистрацию"
+    link = f"{settings.FRONTEND_HOST}/verify?token={token}"
+    html_content = render_email_template(
+        template_name="signup_confirmation.html",
+        context={
+            "project_name": project_name,
+            "email": email,
+            "link": link,
+            "valid_minutes": settings.SIGNUP_TOKEN_EXPIRE_MINUTES,
+        },
+    )
+    return EmailData(html_content=html_content, subject=subject)

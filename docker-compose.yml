@@ -19,6 +19,37 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    healthcheck:
+      test: >
+        sh -c "
+        if [ -n \"$$REDIS_PASSWORD\" ]; then
+          redis-cli -a \"$$REDIS_PASSWORD\" ping
+        else
+          redis-cli ping
+        fi
+        "
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    volumes:
+      - app-redis-data:/data
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD?Variable not set}
+    command: >
+      sh -c "
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes
+      else
+        redis-server --appendonly yes
+      fi
+      "
+
   adminer:
     image: adminer
     restart: always
@@ -53,6 +84,9 @@ services:
       db:
         condition: service_healthy
         restart: true
+      redis:
+        condition: service_healthy
+        restart: true
     command: bash scripts/prestart.sh
     env_file:
       - .env
@@ -73,6 +107,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
 
   backend:
@@ -83,6 +121,9 @@ services:
       - default
     depends_on:
       db:
+        condition: service_healthy
+        restart: true
+      redis:
         condition: service_healthy
         restart: true
       prestart:
@@ -106,6 +147,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
 
     healthcheck:
@@ -164,6 +209,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
 volumes:
   app-db-data:
+  app-redis-data:
 
 networks:
   traefik-public:
