@@ -1,11 +1,14 @@
+import logging
 import uuid
 from typing import Any
 
 from sqlmodel import Session, select
 
-from app.services.passwords.utils import get_password_hash, verify_password
 from app.models.db.models import User
 from app.models.users.models import UserCreate, UserUpdate
+from app.services.passwords.utils import get_password_hash, verify_password
+
+logger = logging.getLogger(__name__)
 
 def create_user_by_password(*, session: Session, user_create: UserCreate) -> User:
     db_obj = User.model_validate(
@@ -14,6 +17,7 @@ def create_user_by_password(*, session: Session, user_create: UserCreate) -> Use
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
+    logger.info("User created, user_id=%s", db_obj.id)
     return db_obj
 
 def create_user_by_google_id(
@@ -29,6 +33,7 @@ def create_user_by_google_id(
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
+    logger.info("User created via Google, user_id=%s", db_obj.id)
     return db_obj
 
 
@@ -47,6 +52,7 @@ def link_google_id(*, session: Session, user: User, google_id: str) -> User:
     session.add(user)
     session.commit()
     session.refresh(user)
+    logger.info("Google linked, user_id=%s", user.id)
     return user
 
 
@@ -72,4 +78,5 @@ def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    logger.info("User updated, user_id=%s", db_user.id)
     return db_user

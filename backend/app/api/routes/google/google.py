@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from app.services.users import crud
@@ -7,7 +9,9 @@ from app.services.jwt import tokens
 from app.core.config import settings
 from app.services.redis import utils as redis_utils
 from authlib.integrations.starlette_client import OAuth
+from app.api import cookie
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/google-oauth", tags=["google-oauth"])
 
 # Configure OAuth
@@ -25,7 +29,7 @@ async def google_login(request: Request):
     """
     Инициация Google OAuth - редирект на Google
     """
-    redirect_uri = request.url_for("google_callback")
+    redirect_uri = f"{settings.BACKEND_HOST}/api/v1/google-oauth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -77,10 +81,10 @@ async def google_callback(
             detail="Google authentication failed",
         )
 
-    # Поиск пользователя по google_id
     user = crud.get_user_by_google_id(session=session, google_id=google_id)
-    
-    if not user:
+    if user:
+        logger.info("Google login, user_id=%s", user.id)
+    elif not user:
         # Проверяем, есть ли пользователь с таким email
         existing_user = crud.get_user_by_email(session=session, email=email)
         if existing_user:
@@ -100,20 +104,19 @@ async def google_callback(
                     "Please verify your email first, to link your google account",
                 )
             
-            # Связываем аккаунты: добавляем google_id к существующему пользователю
-            user = crud.link_google_id(session, existing_user, google_id)
+            user = crud.link_google_id(session=session, user=existing_user, google_id=google_id)
+            logger.info("Google linked, user_id=%s", user.id)
         else:
-            # Создаем нового пользователя через Google
-            # Для Google аккаунтов email считается верифицированным автоматически
             user = crud.create_user_by_google_id(
                 session=session,
                 email=email,
                 google_id=google_id,
                 full_name=full_name,
             )
+            logger.info("Google signup, user_id=%s", user.id)
 
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
     # Создаем токены
     access_token = tokens.create_access_token(data={"sub": str(user.id)})
@@ -122,7 +125,7 @@ async def google_callback(
     # Сохраняем refresh в Redis
     _ = await redis_utils.store_refresh_token(
         redis_client=redis,
-        user_id=user.id,
+        user_id=str(user.id),
         refresh_token=refresh_token,
         user_agent=user_agent,
     )
@@ -131,14 +134,6 @@ async def google_callback(
     response = RedirectResponse(
         url=f"{settings.FRONTEND_HOST}/auth/callback?token={access_token}"
     )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.ENVIRONMENT != "local",
-        samesite="Lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        path="/",
-    )
+    cookie.set_refresh_in_cookie(response, refresh_token)
 
     return response

@@ -1,7 +1,7 @@
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import SessionDep, get_current_active_superuser
@@ -68,7 +68,7 @@ def read_users(session: SessionDep, admin: AdminDep, skip: int = 0, limit: int =
 
 @router.get("/{user_id}", response_model=UserPublic)
 def read_user_by_id(
-    user_id: uuid.UUID, session: SessionDep, admin: AdminDep,
+    user_id: str, session: SessionDep, admin: AdminDep,
 ) -> Any:
     """
     Get a specific user by id.
@@ -79,17 +79,17 @@ def read_user_by_id(
 
 @router.delete("/{user_id}")
 def delete_user(
-    session: SessionDep, admin: AdminDep, user_id: uuid.UUID
+    session: SessionDep, admin: AdminDep, user_id: str
 ) -> Message:
     """
     Delete a user.
     """
     user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user == admin:
         raise HTTPException(
-            status_code=403, detail="Super users are not allowed to delete themselves"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Super users are not allowed to delete themselves"
         )
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore

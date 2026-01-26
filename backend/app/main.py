@@ -2,10 +2,14 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
-from starlette.middleware.sessions import SessionMiddleware
+from app.core.logging_config import setup_logging
+from prometheus_fastapi_instrumentator import Instrumentator
+
+setup_logging()
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -27,6 +31,7 @@ app.add_middleware(
     secret_key=settings.SECRET_KEY,
 )
 
+Instrumentator().instrument(app).expose(app, tags=["metrics"])
 
 # Set all CORS enabled origins
 if settings.all_cors_origins:

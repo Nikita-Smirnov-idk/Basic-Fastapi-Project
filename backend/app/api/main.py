@@ -19,5 +19,5 @@ api_router.include_router(admin.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
 
-if settings.GOOGLE_CLIENT_ID is not None:
+if settings.GOOGLE_CLIENT_ID is not None and settings.GOOGLE_CLIENT_SECRET is not None:
     api_router.include_router(google.router)

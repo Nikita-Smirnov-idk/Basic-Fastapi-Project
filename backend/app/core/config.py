@@ -38,7 +38,13 @@ class Settings(BaseSettings):
     SIGNUP_TOKEN_EXPIRE_MINUTES: int = 30  # Время жизни токена регистрации (15-60 минут)
     TOKEN_PEPPER: str = secrets.token_urlsafe(32)
     FRONTEND_HOST: str = "http://localhost:5173"
+    BACKEND_HOST: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def IS_PROD(self) -> bool:
+        return self.ENVIRONMENT == "production"
 
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)

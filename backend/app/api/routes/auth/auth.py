@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -14,7 +15,6 @@ from app.models.users.models import (
     TokenResponse,
     UserCreate,
     UserPublic,
-    UserRegister,
     SessionOut,
     SessionsListOut,
     BlockSessionRequest,
@@ -23,17 +23,19 @@ from app.models.users.models import (
 )
 from app.models.general.models import Message
 from app.utils import generate_signup_confirmation_email, send_email
+from app.api import cookie
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
+    response: Response,
     session: SessionDep,
     redis: RedisDep,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_agent: str = Depends(get_user_agent),
-    response: Response = None,
 ):
     """
     Логин пользователя
@@ -56,22 +58,13 @@ async def login(
     # Сохраняем refresh в Redis с family_id
     _ = await redis_storage.store_refresh_token(
         redis_client=redis,
-        user_id=user.id,
+        user_id=str(user.id),
         refresh_token=refresh_token,
         user_agent=user_agent,
     )
 
-    # Устанавливаем refresh_token в HttpOnly cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.ENVIRONMENT != "local",
-        samesite="Lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        path="/",
-    )
-
+    response = cookie.set_refresh_in_cookie(response, refresh_token)
+    logger.info("Login success, user_id=%s", user.id)
     return TokenResponse(
         access_token=access_token,
         token_type="bearer"
@@ -106,9 +99,7 @@ def start_signup(session: SessionDep, request: StartSignupRequest) -> Any:
             html_content=email_data.html_content,
         )
     else:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Signup token for {request.email}: {signup_token}")
+        logger.info("Signup email skipped (emails disabled)")
     
     # Возвращаем успех (не раскрываем, зарегистрирован email или нет)
     return Message(message="If this email is not registered, you will receive a confirmation email")
@@ -167,23 +158,25 @@ def complete_signup(session: SessionDep, request: CompleteSignupRequest) -> Any:
         full_name=request.full_name,
         is_verified=True
     )
-    # После подтверждения email считаем пользователя верифицированным
     user = crud.create_user_by_password(session=session, user_create=user_create)
+    logger.info("Signup completed, user_id=%s", user.id)
     return user
+
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    response: Response,
     redis: RedisDep,
     refresh_token: CurrentRefreshToken,
     user_agent: str = Depends(get_user_agent),
-    response: Response = None,
 ):
     """
     Обновление access-токена с помощью refresh-токена
     - refresh берётся из cookie (HttpOnly)
     - при успехе → новый access в теле + новый refresh в cookie (ротация)
     """
-    if not refresh_token:
+    if refresh_token is None:
+        logger.warning("Refresh token not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token not found"
@@ -195,41 +188,54 @@ async def refresh_token(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid token type: refresh token required",
             )
-        user_id = str(payload.get("sub"))
-        if user_id is None:
+        user_id_raw = payload.get("sub")
+        if user_id_raw is None:
             raise ValueError("Invalid token payload")
-    except Exception as e:
+        user_id = str(user_id_raw)
+    except Exception:
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Refresh failed: invalid token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid refresh token: {str(e)}"
+            detail="Invalid refresh token"
         )
 
     # Проверки безопасности (ротация + blocklist + user-agent + family block)
     refresh_data = await redis_utils.get_refresh_data(redis, refresh_token)
 
     if not refresh_data:
-        raise HTTPException(status_code=403, detail="Invalid Token")
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Refresh invalid (no data), user_id=%s", user_id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Token")
 
     if str(refresh_data["user_id"]) != user_id:
-        raise HTTPException(status_code=403, detail="Invalid Token")
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Refresh invalid (user_id mismatch), user_id=%s", user_id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Token")
 
     if refresh_data["user_agent"] != user_agent:
-        await redis_utils.block_family(redis, refresh_data["family_id"])
-        raise HTTPException(status_code=403, detail="Invalid Token")
+        await redis_utils.block_family(redis, refresh_data["family_id"], user_id)
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Refresh invalid (user_agent mismatch), user_id=%s family_id=%s", user_id, refresh_data["family_id"])
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Token")
 
     if await redis_utils.is_refresh_blocked(redis, refresh_token):
         if "family_id" in refresh_data:
             await redis_utils.block_family(redis, refresh_data["family_id"], user_id)
-        raise HTTPException(status_code=403, detail="Invalid Token")
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Refresh blocked, user_id=%s", user_id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Token")
 
     if await redis_utils.is_family_blocked(redis, refresh_data["family_id"]):
-        raise HTTPException(status_code=403, detail="Invalid Token")
+        response = cookie.delete_refresh_from_cookie(response)
+        logger.warning("Family blocked, user_id=%s", user_id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Token")
 
     # Всё прошло → ротация
     await redis_utils.block_refresh(redis, refresh_token)  # старый → в blacklist
 
-    new_access_token = tokens.create_access_token(data={"sub": str(user_id)})
-    new_refresh_token = tokens.create_refresh_token(data={"sub": str(user_id)})
+    new_access_token = tokens.create_access_token(data={"sub": user_id})
+    new_refresh_token = tokens.create_refresh_token(data={"sub": user_id})
 
     # Сохраняем новый refresh с тем же family_id
     await redis_utils.store_refresh_token(
@@ -240,25 +246,17 @@ async def refresh_token(
         family_id=refresh_data["family_id"],
     )
 
-    # Новый cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=settings.ENVIRONMENT != "local",
-        samesite="Lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        path="/",
-    )
-
+    response = cookie.set_refresh_in_cookie(response, new_refresh_token)
+    logger.info("Refresh success, user_id=%s", user_id)
     return TokenResponse(
         access_token=new_access_token,
-        refresh_token=new_refresh_token,  # можно убрать
         token_type="bearer"
     )
 
+
 @router.post("/logout")
 async def logout(
+    response: Response,
     redis: RedisDep,
     refresh_token: CurrentRefreshToken,
 ):
@@ -267,18 +265,16 @@ async def logout(
     """
     if not refresh_token:
         return Message(message= "No active session")
-
+    
     refresh_data = await redis_utils.get_refresh_data(redis, refresh_token)
 
     if refresh_data:
         await redis_utils.block_refresh(redis, refresh_token)
         if "family_id" in refresh_data:
             await redis_utils.block_family(redis, refresh_data["family_id"], refresh_data["user_id"])
+        logger.info("Logout, user_id=%s", refresh_data["user_id"])
 
-    # Можно очистить cookie
-    response = Response()
-    response.delete_cookie(key="refresh_token", path="/")
-
+    response = cookie.delete_refresh_from_cookie(response)
     return Message(message="Logged out successfully")
 
 @router.get("/my-sessions", response_model=SessionsListOut)
@@ -307,7 +303,7 @@ async def get_my_sessions(
                 )
             )
 
-    # Можно сортировать, например, по last_active DESC
+    # Сортировка по last_active DESC
     active_sessions.sort(key=lambda x: x.last_active, reverse=True)
 
     return SessionsListOut(
@@ -338,10 +334,9 @@ async def block_user_session(
             detail="This session does not belong to you"
         )
 
-    # Блокируем
     await redis_utils.block_family(redis_client, family_id, str(current_user.id))
-
-    return Message(message = "Session blocked successfully")
+    logger.info("Session blocked, user_id=%s family_id=%s", current_user.id, family_id)
+    return Message(message="Session blocked successfully")
 
 
 @router.post("/block/all", status_code=status.HTTP_200_OK)
@@ -360,6 +355,5 @@ async def block_all_sessions_except_current(
         await redis_utils.block_family(redis_client, family_id, str(current_user.id))
         blocked_count += 1
 
-    return Message(
-        message = "Have been blocked " + str(blocked_count) + " sessions" 
-    )
+    logger.info("All sessions blocked, user_id=%s count=%s", current_user.id, blocked_count)
+    return Message(message="Have been blocked " + str(blocked_count) + " sessions")

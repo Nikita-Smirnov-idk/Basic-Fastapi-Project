@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from sqlmodel import col, delete
 
 from app.services.users import crud
@@ -41,7 +41,7 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
     if current_user.is_superuser:
         raise HTTPException(
-            status_code=403, detail="Super users are not allowed to delete themselves"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Super users are not allowed to delete themselves"
         )
     session.delete(current_user)
     session.commit()

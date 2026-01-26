@@ -89,6 +89,8 @@ services:
       SMTP_HOST: "mailcatcher"
       SMTP_PORT: "1025"
       SMTP_TLS: "false"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
       EMAILS_FROM_EMAIL: "noreply@example.com"
 
   mailcatcher:

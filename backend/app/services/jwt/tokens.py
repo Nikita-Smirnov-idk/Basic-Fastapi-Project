@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 import jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -34,6 +37,8 @@ def decode_token(token: str):
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:
+        logger.debug("Token expired")
         raise ValueError("Token expired")
     except jwt.InvalidTokenError:
+        logger.debug("Invalid token")
         raise ValueError("Invalid token")
