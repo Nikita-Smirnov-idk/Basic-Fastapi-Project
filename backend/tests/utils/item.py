@@ -1,6 +1,6 @@
 from sqlmodel import Session
 
-from app.services.users import crud
+from app.services.users.auth import auth_service
 from app.models.db.models import Item
 from app.models.items.models import ItemCreate
 from tests.utils.user import create_random_user
@@ -14,4 +14,4 @@ def create_random_item(db: Session) -> Item:
     title = random_lower_string()
     description = random_lower_string()
     item_in = ItemCreate(title=title, description=description)
-    return crud.create_item(session=db, item_in=item_in, owner_id=owner_id)
+    return auth_service.create_item(session=db, item_in=item_in, owner_id=owner_id)

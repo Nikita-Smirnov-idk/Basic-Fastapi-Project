@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
+    DB_POOL_SIZE: int = 20,
+    DB_MAX_OVERFLOW: int = 30,
+    DB_POOL_TIMEOUT: int = 30,
+    DB_POOL_RECYCLE: int = 1800,
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:

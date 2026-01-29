@@ -4,7 +4,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep
+from app.api.routes.admin.deps import AdminDep
 from app.services.passwords.utils import get_password_hash
 from app.models.users.models import (
     UserPublic,
@@ -14,7 +15,6 @@ from app.models.db.models import User
 from app.services.passwords.utils import get_password_hash
 
 from sqlmodel import func, select
-from app.api.deps import AdminDep
 from app.models.general.models import Message
 from app.models.db.models import Item
 from sqlmodel import col, delete
@@ -46,11 +46,7 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep, admin: AdminDep
 
     return user
 
-@router.get(
-    "/",
-    dependencies=[Depends(get_current_active_superuser)],
-    response_model=UsersPublic,
-)
+@router.get("/", response_model=UsersPublic)
 def read_users(session: SessionDep, admin: AdminDep, skip: int = 0, limit: int = 100) -> Any:
     """
     Retrieve users.

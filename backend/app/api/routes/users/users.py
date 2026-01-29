@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import Depends, HTTPException, status
 from sqlmodel import col, delete
 
-from app.services.users import crud
+from app.services.users.auth import auth_service
 from app.api.deps import (
     CurrentUser,
     SessionDep,

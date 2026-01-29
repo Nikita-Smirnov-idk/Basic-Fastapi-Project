@@ -2,6 +2,11 @@ import logging
 from collections.abc import Generator
 from typing import Annotated
 
+from app.db.postgres.unit_of_work import UnitOfWork
+from app.db.redis.redis_repo import RedisRepository
+from app.services.users.auth.auth_service import AuthService
+from app.services.users.google_auth.google_auth import GoogleAuthService
+from app.services.users.passwords.passwords_service import PasswordService
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -16,6 +21,7 @@ from app.models.db.models import User
 from app.models.users.models import TokenPayload
 from app.services.jwt.tokens import decode_token
 from app.core.redis import get_redis_client
+from app.db.postgres.session import get_async_session
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +30,8 @@ reusable_oauth2 = OAuth2PasswordBearer(
 )
 
 
-def get_db() -> Generator[Session, None, None]:
-    with Session(engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(get_db)]
+SessionDep = Annotated[Session, Depends(get_async_session)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
-RedisDep = Annotated[aioredis.Redis, Depends(get_redis_client)]
 
 
 def get_current_user(session: SessionDep, token: TokenDep) -> User:
@@ -42,6 +42,11 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid token type: access token required",
+            )
+        if payload.get("iss") != settings.FRONTEND_HOST:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid token payload"
             )
         token_data = TokenPayload(**payload)
     except (InvalidTokenError, ValidationError, ValueError):
@@ -56,7 +61,7 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.is_active:
         logger.warning("Inactive user, user_id=%s", user.id)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
     return user
 
 def get_user_agent(user_agent: str = Header(None)):
@@ -66,20 +71,4 @@ def get_user_agent(user_agent: str = Header(None)):
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-def get_current_active_superuser(current_user: CurrentUser) -> User:
-    if not current_user.is_superuser:
-        logger.warning("Insufficient privileges, user_id=%s", current_user.id)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="The user doesn't have enough privileges"
-        )
-    return current_user
-
-async def get_refresh_token_from_cookie(
-    refresh_token: str | None = Cookie(default=None, alias="refresh_token")
-) -> str | None:
-    return refresh_token
-
-CurrentRefreshToken = Annotated[str | None, Depends(get_refresh_token_from_cookie)]
-AdminDep = Annotated[User, Depends(get_current_active_superuser)]
+UserAgentDep = Annotated[str, Depends(get_user_agent)]
