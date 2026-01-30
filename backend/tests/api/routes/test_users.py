@@ -4,11 +4,13 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.services.users.auth import auth_service
-from app.core.config import settings
-from app.services.passwords.utils import verify_password
-from app.models.db.models import User
-from app.models.users.models import UserCreate
+from app.config import settings
+from app.infrastructure.persistence.models import User
+from app.infrastructure.passwords.utils import verify_password
+from app.infrastructure.users.sync_helpers import (
+    create_user_sync,
+    get_user_by_email_sync,
+)
 from tests.utils.utils import random_email, random_lower_string
 
 
@@ -39,20 +41,20 @@ def test_create_user_new_email(
 ) -> None:
     with (
         patch("app.utils.send_email", return_value=None),
-        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
-        patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
+        patch("app.config.settings.SMTP_HOST", "smtp.example.com"),
+        patch("app.config.settings.SMTP_USER", "admin@example.com"),
     ):
         username = random_email()
         password = random_lower_string()
         data = {"email": username, "password": password}
         r = client.post(
-            f"{settings.API_V1_STR}/users/",
+            f"{settings.API_V1_STR}/admin/",
             headers=superuser_token_headers,
             json=data,
         )
         assert 200 <= r.status_code < 300
         created_user = r.json()
-        user = auth_service.get_user_by_email(session=db, email=username)
+        user = get_user_by_email_sync(session=db, email=username)
         assert user
         assert user.email == created_user["email"]
 
@@ -62,16 +64,15 @@ def test_get_existing_user(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
     user_id = user.id
     r = client.get(
-        f"{settings.API_V1_STR}/users/{user_id}",
+        f"{settings.API_V1_STR}/admin/{user_id}",
         headers=superuser_token_headers,
     )
     assert 200 <= r.status_code < 300
     api_user = r.json()
-    existing_user = auth_service.get_user_by_email(session=db, email=username)
+    existing_user = get_user_by_email_sync(session=db, email=username)
     assert existing_user
     assert existing_user.email == api_user["email"]
 
@@ -79,26 +80,25 @@ def test_get_existing_user(
 def test_get_existing_user_current_user(client: TestClient, db: Session) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
     user_id = user.id
 
     login_data = {
         "username": username,
         "password": password,
     }
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=login_data)
     tokens = r.json()
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
 
     r = client.get(
-        f"{settings.API_V1_STR}/users/{user_id}",
+        f"{settings.API_V1_STR}/admin/{user_id}",
         headers=headers,
     )
     assert 200 <= r.status_code < 300
     api_user = r.json()
-    existing_user = auth_service.get_user_by_email(session=db, email=username)
+    existing_user = get_user_by_email_sync(session=db, email=username)
     assert existing_user
     assert existing_user.email == api_user["email"]
 
@@ -107,7 +107,7 @@ def test_get_existing_user_permissions_error(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     r = client.get(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/admin/{uuid.uuid4()}",
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
@@ -120,11 +120,10 @@ def test_create_user_existing_username(
     username = random_email()
     # username = email
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    auth_service.create_user(session=db, user_create=user_in)
+    create_user_sync(session=db, email=username, password=password)
     data = {"email": username, "password": password}
     r = client.post(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/admin/",
         headers=superuser_token_headers,
         json=data,
     )
@@ -140,7 +139,7 @@ def test_create_user_by_normal_user(
     password = random_lower_string()
     data = {"email": username, "password": password}
     r = client.post(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/admin/",
         headers=normal_user_token_headers,
         json=data,
     )
@@ -152,15 +151,13 @@ def test_retrieve_users(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    auth_service.create_user(session=db, user_create=user_in)
+    create_user_sync(session=db, email=username, password=password)
 
     username2 = random_email()
     password2 = random_lower_string()
-    user_in2 = UserCreate(email=username2, password=password2)
-    auth_service.create_user(session=db, user_create=user_in2)
+    create_user_sync(session=db, email=username2, password=password2)
 
-    r = client.get(f"{settings.API_V1_STR}/users/", headers=superuser_token_headers)
+    r = client.get(f"{settings.API_V1_STR}/admin/", headers=superuser_token_headers)
     all_users = r.json()
 
     assert len(all_users["data"]) > 1
@@ -251,8 +248,7 @@ def test_update_user_me_email_exists(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
 
     data = {"email": user.email}
     r = client.patch(
@@ -326,12 +322,11 @@ def test_update_user(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
 
     data = {"full_name": "Updated_full_name"}
     r = client.patch(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/admin/{user.id}",
         headers=superuser_token_headers,
         json=data,
     )
@@ -352,7 +347,7 @@ def test_update_user_not_exists(
 ) -> None:
     data = {"full_name": "Updated_full_name"}
     r = client.patch(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/admin/{uuid.uuid4()}",
         headers=superuser_token_headers,
         json=data,
     )
@@ -365,17 +360,15 @@ def test_update_user_email_exists(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
 
     username2 = random_email()
     password2 = random_lower_string()
-    user_in2 = UserCreate(email=username2, password=password2)
-    user2 = auth_service.create_user(session=db, user_create=user_in2)
+    user2 = create_user_sync(session=db, email=username2, password=password2)
 
     data = {"email": user2.email}
     r = client.patch(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/admin/{user.id}",
         headers=superuser_token_headers,
         json=data,
     )
@@ -386,15 +379,14 @@ def test_update_user_email_exists(
 def test_delete_user_me(client: TestClient, db: Session) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
     user_id = user.id
 
     login_data = {
         "username": username,
         "password": password,
     }
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=login_data)
     tokens = r.json()
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
@@ -431,11 +423,10 @@ def test_delete_user_super_user(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
     user_id = user.id
     r = client.delete(
-        f"{settings.API_V1_STR}/users/{user_id}",
+        f"{settings.API_V1_STR}/admin/{user_id}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -449,7 +440,7 @@ def test_delete_user_not_found(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     r = client.delete(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/admin/{uuid.uuid4()}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 404
@@ -459,12 +450,12 @@ def test_delete_user_not_found(
 def test_delete_user_current_super_user_error(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    super_user = auth_service.get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
+    super_user = get_user_by_email_sync(session=db, email=settings.FIRST_SUPERUSER)
     assert super_user
     user_id = super_user.id
 
     r = client.delete(
-        f"{settings.API_V1_STR}/users/{user_id}",
+        f"{settings.API_V1_STR}/admin/{user_id}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 403
@@ -476,11 +467,10 @@ def test_delete_user_without_privileges(
 ) -> None:
     username = random_email()
     password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = auth_service.create_user(session=db, user_create=user_in)
+    user = create_user_sync(session=db, email=username, password=password)
 
     r = client.delete(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/admin/{user.id}",
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403

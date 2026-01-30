@@ -1,16 +1,13 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import emails  # type: ignore
-import jwt
 from jinja2 import Template
-from jwt.exceptions import InvalidTokenError
 
-from app.core.config import settings
-from app.services.jwt.tokens import ALGORITHM
+from app.config import settings
+from app.infrastructure.jwt.token_service import get_token_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -101,26 +98,11 @@ def generate_new_account_email(
 
 
 def generate_password_reset_token(email: str) -> str:
-    delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
-    now = datetime.now(timezone.utc)
-    expires = now + delta
-    exp = expires.timestamp()
-    encoded_jwt = jwt.encode(
-        {"exp": exp, "nbf": now, "sub": email},
-        settings.SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
-    return encoded_jwt
+    return get_token_service().create_password_reset_token(email)
 
 
 def verify_password_reset_token(token: str) -> str | None:
-    try:
-        decoded_token = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[ALGORITHM]
-        )
-        return str(decoded_token["sub"])
-    except InvalidTokenError:
-        return None
+    return get_token_service().verify_password_reset_token(token)
 
 
 def generate_signup_confirmation_email(email: str, token: str) -> EmailData:
