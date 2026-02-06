@@ -3,10 +3,12 @@ from fastapi.testclient import TestClient
 
 from app.core.config.config import settings
 from tests.utils.utils import get_superuser_token_headers
+import time
 
 
 def test_refresh_different_agent_invalidates_family(client: TestClient) -> None:
     """Refresh with different User-Agent -> 403 and family invalidated."""
+    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -39,6 +41,7 @@ def test_refresh_different_agent_invalidates_family(client: TestClient) -> None:
 
 def test_refresh_blocked_token_invalidates_family(client: TestClient) -> None:
     """Using a blocked (already rotated) refresh token -> 403 and family invalidated."""
+    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -71,6 +74,7 @@ def test_refresh_blocked_token_invalidates_family(client: TestClient) -> None:
 
 def test_refresh_family_blocked_no_pass(client: TestClient) -> None:
     """When family is blocked, refresh must not succeed."""
+    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -114,6 +118,7 @@ def test_refresh_family_blocked_no_pass(client: TestClient) -> None:
 
 def test_refresh_success_same_agent(client: TestClient) -> None:
     """Refresh with same User-Agent -> success and new tokens."""
+    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -140,6 +145,7 @@ def test_refresh_success_same_agent(client: TestClient) -> None:
 
 def test_refresh_invalid_token(client: TestClient) -> None:
     """Refresh with invalid/malformed token -> 403."""
+    time.sleep(1)
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "TestAgent"},
@@ -150,6 +156,7 @@ def test_refresh_invalid_token(client: TestClient) -> None:
 
 def test_refresh_no_token(client: TestClient) -> None:
     """Refresh without refresh_token cookie -> 403 or 401."""
+    time.sleep(1)
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "TestAgent"},

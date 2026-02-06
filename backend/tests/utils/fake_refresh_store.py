@@ -21,7 +21,7 @@ class FakeRefreshStore(IRefreshTokenStore):
     def __init__(self) -> None:
         self._refresh: dict[str, dict] = {}
         self._families: dict[str, dict] = {}
-        self._blocked: set[str] = {}
+        self._blocked: set[str] = set()
         self._user_sessions: dict[str, set[str]] = {}
 
     @classmethod
