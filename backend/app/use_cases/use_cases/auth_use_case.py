@@ -91,7 +91,6 @@ class AuthUseCase:
             raise InvalidCredentialsError("Invalid refresh token")
         
         refresh_data = await self._refresh_store.get_refresh_data(token_jti)
-        print(payload, refresh_data)
 
         try:
             self._token_service.compare_refresh_payload_and_stored_data(payload, refresh_data)
