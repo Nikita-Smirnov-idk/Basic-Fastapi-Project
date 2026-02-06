@@ -2,13 +2,13 @@
 from fastapi.testclient import TestClient
 
 from app.core.config.config import settings
+from app.infrastructure.jwt.token_service import TokenService
 from tests.utils.utils import get_superuser_token_headers
 import time
 
 
 def test_refresh_different_agent_invalidates_family(client: TestClient) -> None:
     """Refresh with different User-Agent -> 403 and family invalidated."""
-    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -30,6 +30,8 @@ def test_refresh_different_agent_invalidates_family(client: TestClient) -> None:
     )
     assert refresh_resp.status_code == 403
 
+    client.cookies.clear()
+
     # Token is now blocked; retry must also fail
     retry_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
@@ -41,7 +43,6 @@ def test_refresh_different_agent_invalidates_family(client: TestClient) -> None:
 
 def test_refresh_blocked_token_invalidates_family(client: TestClient) -> None:
     """Using a blocked (already rotated) refresh token -> 403 and family invalidated."""
-    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -63,6 +64,8 @@ def test_refresh_blocked_token_invalidates_family(client: TestClient) -> None:
     )
     assert first_refresh.status_code == 200
 
+    client.cookies.clear()
+
     # Reusing blocked token must fail
     second_refresh = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
@@ -74,7 +77,6 @@ def test_refresh_blocked_token_invalidates_family(client: TestClient) -> None:
 
 def test_refresh_family_blocked_no_pass(client: TestClient) -> None:
     """When family is blocked, refresh must not succeed."""
-    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -89,20 +91,22 @@ def test_refresh_family_blocked_no_pass(client: TestClient) -> None:
     access_token = login_resp.cookies.get("access_token")
     assert refresh_token and access_token
 
-    # Get sessions to find family_id
+    token_service = TokenService()
+    payload = token_service.decode_and_validate(refresh_token, "refresh")
+    family_id = token_service.get_family_id(payload)
+
+    # Get sessions and check that family_id from token payload is in my_sessions
     sessions_resp = client.get(
         f"{settings.API_V1_STR}/users/auth/my-sessions",
-        headers={"Cookie": f"access_token={access_token}"},
     )
     assert sessions_resp.status_code == 200
-    sessions = sessions_resp.json()
-    assert sessions["total"] >= 1
-    family_id = sessions["sessions"][0]["family_id"]
+    my_sessions = sessions_resp.json()
+    session_family_ids = [s["family_id"] for s in my_sessions["sessions"]]
+    assert family_id in session_family_ids, f"family_id {family_id} from token payload must be in my_sessions: {session_family_ids}"
 
     # Block this session (family)
     block_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/block",
-        headers={"Cookie": f"access_token={access_token}"},
         json={"family_id": family_id},
     )
     assert block_resp.status_code == 200
@@ -111,14 +115,12 @@ def test_refresh_family_blocked_no_pass(client: TestClient) -> None:
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "AgentX"},
-        cookies={"refresh_token": refresh_token},
     )
     assert refresh_resp.status_code == 403
 
 
 def test_refresh_success_same_agent(client: TestClient) -> None:
     """Refresh with same User-Agent -> success and new tokens."""
-    time.sleep(1)
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
@@ -129,13 +131,10 @@ def test_refresh_success_same_agent(client: TestClient) -> None:
         headers={"User-Agent": "Safari/1.0"},
     )
     assert login_resp.status_code == 200
-    refresh_token = login_resp.cookies.get("refresh_token")
-    assert refresh_token
 
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "Safari/1.0"},
-        cookies={"refresh_token": refresh_token},
     )
     assert refresh_resp.status_code == 200
     assert refresh_resp.cookies.get("access_token")
@@ -145,7 +144,6 @@ def test_refresh_success_same_agent(client: TestClient) -> None:
 
 def test_refresh_invalid_token(client: TestClient) -> None:
     """Refresh with invalid/malformed token -> 403."""
-    time.sleep(1)
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "TestAgent"},
@@ -156,7 +154,6 @@ def test_refresh_invalid_token(client: TestClient) -> None:
 
 def test_refresh_no_token(client: TestClient) -> None:
     """Refresh without refresh_token cookie -> 403 or 401."""
-    time.sleep(1)
     refresh_resp = client.post(
         f"{settings.API_V1_STR}/users/auth/refresh",
         headers={"User-Agent": "TestAgent"},

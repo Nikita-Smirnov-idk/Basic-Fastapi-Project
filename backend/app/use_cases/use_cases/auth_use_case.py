@@ -83,54 +83,69 @@ class AuthUseCase:
     async def refresh(self, refresh_token: str, user_agent: str) -> dict[str, Any]:
         try:
             payload = self._token_service.decode_and_validate(refresh_token, "refresh")
+
             user_id = self._token_service.get_sub(payload)
+            token_jti = self._token_service.get_jti(payload)
+            family_id = self._token_service.get_family_id(payload)
         except ValueError:
             raise InvalidCredentialsError("Invalid refresh token")
-        refresh_data = await self._refresh_store.get_refresh_data(refresh_token)
+        
+        refresh_data = await self._refresh_store.get_refresh_data(token_jti)
+        print(payload, refresh_data)
 
-        if not refresh_data or str(refresh_data["user_id"]) != user_id:
-            logger.warning("Failed refresh: invalid data, user_id=%s", user_id)
-            raise InvalidCredentialsError("Invalid Token")
+        try:
+            self._token_service.compare_refresh_payload_and_stored_data(payload, refresh_data)
+        except ValueError:
+            logger.warning("Failed refresh: invalid payload, user_id=%s, token_jti=%s", user_id, token_jti)
+            raise InvalidCredentialsError("Invalid refresh token")
         
         if refresh_data["user_agent"] != user_agent:
-            logger.warning("Failed refresh: invalid data, user_id=%s", user_id)
-            await self._refresh_store.block_refresh(refresh_token)
+            logger.warning("Failed refresh: invalid data, user_id=%s, token_jti=%s", user_id, token_jti)
+            await self._refresh_store.block_refresh(token_jti)
             if "family_id" in refresh_data:
                 await self._refresh_store.block_family(
-                    refresh_data["family_id"], str(refresh_data["user_id"])
+                    family_id, user_id
                 )
             raise InvalidCredentialsError("Invalid Token")
         
-        if await self._refresh_store.is_refresh_blocked(refresh_token):
+        if await self._refresh_store.is_refresh_blocked(token_jti):
             if "family_id" in refresh_data:
-                await self._refresh_store.block_family(refresh_data["family_id"], user_id)
+                await self._refresh_store.block_family(family_id, user_id)
 
-            logger.warning("Failed refresh: blocked, user_id=%s", user_id)
+            logger.warning("Failed refresh: blocked, user_id=%s, token_jti=%s", user_id, token_jti)
             raise InvalidCredentialsError("Invalid Token")
         
-        if await self._refresh_store.is_family_blocked(refresh_data["family_id"]):
-            await self._refresh_store.block_refresh(refresh_token)
-            logger.warning("Failed refresh: family blocked, user_id=%s", user_id)
+        if await self._refresh_store.is_family_blocked(family_id):
+            await self._refresh_store.block_refresh(token_jti)
+            logger.warning("Failed refresh: family blocked, user_id=%s, token_jti=%s", user_id, token_jti)
             raise InvalidCredentialsError("Invalid Token")
 
-        if not await self._refresh_store.try_block_refresh(refresh_token):
+        if not await self._refresh_store.try_block_refresh(token_jti):
             if "family_id" in refresh_data:
                 await self._refresh_store.block_family(
-                    refresh_data["family_id"], user_id
+                    family_id, user_id
                 )
             logger.warning("Failed refresh: token reuse, user_id=%s", user_id)
             raise InvalidCredentialsError("Invalid Token")
 
+        logger.info("Starting to create tokens for refresh/, user_id=%s, token_jti=%s", user_id, token_jti)
         return await create_and_store_tokens(
-            self._token_service, self._refresh_store, user_id, user_agent
+            self._token_service, self._refresh_store, user_id, user_agent, family_id
         )
 
     async def logout(self, refresh_token: str | None) -> None:
         if not refresh_token:
             return
-        refresh_data = await self._refresh_store.get_refresh_data(refresh_token)
+        try:
+            payload = self._token_service.decode_and_validate(refresh_token, "refresh")
+            token_jti = payload.get("jti")
+            if not token_jti:
+                return
+        except ValueError:
+            return
+        refresh_data = await self._refresh_store.get_refresh_data(token_jti)
         if refresh_data:
-            await self._refresh_store.block_refresh(refresh_token)
+            await self._refresh_store.block_refresh(token_jti)
             if "family_id" in refresh_data:
                 await self._refresh_store.block_family(
                     refresh_data["family_id"], refresh_data["user_id"]

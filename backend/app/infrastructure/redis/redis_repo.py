@@ -1,6 +1,5 @@
 import json
 import logging
-import hashlib
 import uuid
 from datetime import datetime
 
@@ -30,22 +29,20 @@ class RedisRepository:
             retry_on_timeout=True,
         )
 
-    @classmethod
-    def hash_refresh_token(cls, token: str) -> str:
-        input_bytes = (token + cls.TOKEN_PEPPER).encode("utf-8")
-        return hashlib.sha256(input_bytes).hexdigest()
-
     async def store_refresh_token(
         self,
         user_id: str,
-        refresh_token: str,
         user_agent: str,
-        family_id: str | None = None,
+        jti: str,
+        family_id: str,
     ) -> str:
         try:
             family_data: dict
-            if not family_id:
-                family_id = str(uuid.uuid4())
+
+            family_old_data = await self.redis_client.get(
+                self.FAMILY_PREFIX + family_id
+            )
+            if not family_old_data:
                 family_data = {
                     "user_agent": user_agent,
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -53,24 +50,15 @@ class RedisRepository:
                     "blocked": False,
                 }
             else:
-                family_old_data = await self.redis_client.get(
-                    self.FAMILY_PREFIX + family_id
-                )
-                if family_old_data is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Invalid token",
-                    )
-                family_old_data = json.loads(family_old_data)
+                parsed = json.loads(family_old_data)
                 family_data = {
-                    "user_agent": family_old_data["user_agent"],
-                    "created_at": family_old_data["created_at"],
+                    "user_agent": parsed["user_agent"],
+                    "created_at": parsed["created_at"],
                     "last_active": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "blocked": family_old_data.get("blocked", False),
+                    "blocked": parsed.get("blocked", False),
                 }
 
             pipe = self.redis_client.pipeline(transaction=True)
-            token_hash = self.hash_refresh_token(refresh_token)
             pipe.set(
                 self.FAMILY_PREFIX + family_id,
                 json.dumps(family_data),
@@ -80,12 +68,13 @@ class RedisRepository:
             pipe.sadd(user_sessions_key, family_id)
             pipe.expire(user_sessions_key, self.EXPIRE_TIME)
             data = {
-                "user_id": user_id,
+                "sub": user_id,
                 "user_agent": user_agent,
                 "family_id": family_id,
+                "jti": jti,
             }
             pipe.set(
-                self.REFRESH_PREFIX + token_hash,
+                self.REFRESH_PREFIX + jti,
                 json.dumps(data),
                 ex=self.EXPIRE_TIME,
             )
@@ -98,10 +87,9 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def get_refresh_data(self, refresh_token: str) -> dict | None:
+    async def get_refresh_data(self, jti: str) -> dict | None:
         try:
-            token_hash = self.hash_refresh_token(refresh_token)
-            raw_data = await self.redis_client.get(self.REFRESH_PREFIX + token_hash)
+            raw_data = await self.redis_client.get(self.REFRESH_PREFIX + jti)
             if raw_data:
                 return json.loads(raw_data)
             return None
@@ -112,11 +100,10 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def block_refresh(self, token: str) -> None:
+    async def block_refresh(self, jti: str) -> None:
         try:
-            token_hash = self.hash_refresh_token(token)
             await self.redis_client.set(
-                self.REFRESH_BLOCKLIST_PREFIX + token_hash,
+                self.REFRESH_BLOCKLIST_PREFIX + jti,
                 "blocked",
                 ex=self.EXPIRE_TIME,
             )
@@ -127,11 +114,10 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def try_block_refresh(self, token: str) -> bool:
+    async def try_block_refresh(self, jti: str) -> bool:
         """Atomically set block key only if not exists (NX). Returns True if we claimed the token, False if already blocked (e.g. concurrent reuse)."""
         try:
-            token_hash = self.hash_refresh_token(token)
-            key = self.REFRESH_BLOCKLIST_PREFIX + token_hash
+            key = self.REFRESH_BLOCKLIST_PREFIX + jti
             result = await self.redis_client.set(
                 key, "blocked", ex=self.EXPIRE_TIME, nx=True
             )
@@ -143,11 +129,10 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def is_refresh_blocked(self, token: str) -> bool:
+    async def is_refresh_blocked(self, jti: str) -> bool:
         try:
-            token_hash = self.hash_refresh_token(token)
             exists = await self.redis_client.exists(
-                self.REFRESH_BLOCKLIST_PREFIX + token_hash
+                self.REFRESH_BLOCKLIST_PREFIX + jti
             )
             return exists > 0
         except (ConnectionError, TimeoutError, RedisError) as e:

@@ -33,8 +33,23 @@ class ITokenService(ABC):
         ...
 
     @abstractmethod
+    def compare_refresh_payload_and_stored_data(self, payload: dict[str, Any], stored_data: dict[str, Any] | None) -> None:
+        """Validate User user_id/jti/family_id. Raises ValueError on invalid/expired/wrong-type."""
+        ...
+
+    @abstractmethod
     def get_sub(self, payload: dict[str, Any]) -> str:
         """Extract sub claim. Raises ValueError if missing."""
+        ...
+
+    @abstractmethod
+    def get_jti(self, payload: dict[str, Any]) -> str:
+        """Extract jti. Raises ValueError if missing."""
+        ...
+
+    @abstractmethod
+    def get_family_id(self, payload: dict[str, Any]) -> str:
+        """Extract family_id. Raises ValueError if missing."""
         ...
 
     @abstractmethod

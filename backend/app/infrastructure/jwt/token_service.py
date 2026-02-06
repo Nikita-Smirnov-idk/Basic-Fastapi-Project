@@ -3,6 +3,7 @@ Single implementation of all JWT logic (access, refresh, signup, password-reset,
 Implements ITokenService. Used by use cases and API deps.
 """
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -59,6 +60,7 @@ class TokenService(ITokenService):
         return jwt.encode(to_encode, self._secret_key, algorithm=ALGORITHM)
 
     def create_access_token(self, data: dict[str, Any]) -> str:
+        """Create access token"""
         return self._create_typed_token(
             data,
             "access",
@@ -66,11 +68,13 @@ class TokenService(ITokenService):
         )
 
     def create_refresh_token(self, data: dict[str, Any]) -> str:
-        return self._create_typed_token(
+        """Create refresh token"""
+        refresh_token = self._create_typed_token(
             data,
             "refresh",
             timedelta(days=self._refresh_expire_days),
         )
+        return refresh_token
 
     def create_signup_token(self, data: dict[str, Any]) -> str:
         return self._create_typed_token(
@@ -109,6 +113,29 @@ class TokenService(ITokenService):
         payload = self.decode_token(token)
         self._validate_type_and_issuer(payload, expected_type)
         return payload
+    
+    def compare_refresh_payload_and_stored_data(self, payload: dict[str, Any], stored_data: dict[str, Any] | None) -> None:
+        """Validate User user_id/jti/family_id. Raises ValueError on invalid/expired/wrong-type."""
+        if not stored_data:
+            raise ValueError("Invalid Token")
+        
+        payload_user_id = str(payload.get("sub"))
+        payload_jti = str(payload.get("jti"))
+        payload_family_id = str(payload.get("family_id"))
+
+        stored_user_id = str(stored_data.get("sub"))
+        stored_jti = str(stored_data.get("jti"))
+        stored_family_id = str(stored_data.get("family_id"))
+
+        if not stored_user_id or stored_user_id != payload_user_id:
+            raise ValueError("Invalid Token")
+        
+        if not stored_jti or stored_jti != payload_jti:
+            raise ValueError("Invalid Token")
+        
+        if not stored_family_id or stored_family_id != payload_family_id:
+            raise ValueError("Invalid Token")
+        
 
     def get_sub(self, payload: dict[str, Any]) -> str:
         """Extract sub claim. Raises ValueError if missing."""
@@ -116,6 +143,20 @@ class TokenService(ITokenService):
         if sub is None:
             raise ValueError("Invalid token payload")
         return str(sub)
+    
+    def get_jti(self, payload: dict[str, Any]) -> str:
+        """Extract jti. Raises ValueError if missing."""
+        jti = payload.get("jti")
+        if jti is None:
+            raise ValueError("Invalid token payload")
+        return str(jti)
+    
+    def get_family_id(self, payload: dict[str, Any]) -> str:
+        """Extract family_id. Raises ValueError if missing."""
+        family_id = payload.get("family_id")
+        if family_id is None:
+            raise ValueError("Invalid token payload")
+        return str(family_id)
 
     def verify_token_and_get_sub(
         self, token: str, expected_type: str, *, or_none: bool = False

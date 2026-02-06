@@ -10,29 +10,29 @@ class IRefreshTokenStore(ABC):
     async def store_refresh_token(
         self,
         user_id: str,
-        refresh_token: str,
         user_agent: str,
+        jti: str,
         family_id: str | None = None,
     ) -> str:
         """Store refresh token, return family_id."""
         ...
 
     @abstractmethod
-    async def get_refresh_data(self, refresh_token: str) -> dict[str, Any] | None:
-        """Get metadata by refresh token. Returns None if not found."""
+    async def get_refresh_data(self, jti: str) -> dict[str, Any] | None:
+        """Get metadata by jti. Returns None if not found."""
         ...
 
     @abstractmethod
-    async def block_refresh(self, token: str) -> None:
+    async def block_refresh(self, jti: str) -> None:
         ...
 
     @abstractmethod
-    async def try_block_refresh(self, token: str) -> bool:
+    async def try_block_refresh(self, jti: str) -> bool:
         """Atomically block the token (claim for one-time use). Returns True if this call claimed it, False if already blocked (e.g. concurrent reuse)."""
         ...
 
     @abstractmethod
-    async def is_refresh_blocked(self, token: str) -> bool:
+    async def is_refresh_blocked(self, jti: str) -> bool:
         ...
 
     @abstractmethod
