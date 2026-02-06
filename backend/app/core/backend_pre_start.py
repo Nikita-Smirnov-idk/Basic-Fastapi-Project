@@ -5,8 +5,8 @@ from sqlalchemy import Engine
 from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
-from app.db import engine
-from app.redis import redis_client
+from app.core.config.db import engine
+from app.core.config.redis import redis_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

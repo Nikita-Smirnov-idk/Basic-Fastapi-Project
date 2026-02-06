@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.domain.exceptions import (
@@ -39,32 +40,33 @@ def _auth_domain_to_http(exc: Exception) -> None:
     raise exc
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=Message)
 async def login(
     response: Response,
     auth_use_case: AuthUseCaseDep,
     form_data: OAuth2PasswordRequestForm = Depends(),
     user_agent: UserAgentDep = None,
-) -> TokenResponse:
+) -> Message:
     try:
         data = await auth_use_case.login(
             form_data.username, password=form_data.password, user_agent=user_agent
         )
     except (InvalidCredentialsError, InactiveUserError) as e:
         _auth_domain_to_http(e)
-    response = cookie.set_refresh_in_cookie(response, data["refresh_token"])
+    cookie.set_refresh_in_cookie(response, data["refresh_token"])
+    cookie.set_access_in_cookie(response, data["access_token"])
     logger.info("Login success, user_id=%s", data["user_id"])
-    return TokenResponse(access_token=data["access_token"], token_type="bearer")
+    return Message(message="Login successful")
 
 
 @router.post("/start-signup", status_code=status.HTTP_200_OK, response_model=Message)
-async def start_signup(auth_use_case: AuthUseCaseDep, request: StartSignupRequest) -> Any:
+async def start_signup(auth_use_case: AuthUseCaseDep, request: StartSignupRequest) -> Message:
     await auth_use_case.start_signup(request.email)
     return Message(message="If this email is not registered, you will receive a confirmation email")
 
 
 @router.post("/complete-signup", response_model=UserPublic)
-async def complete_signup(auth_use_case: AuthUseCaseDep, request: CompleteSignupRequest) -> Any:
+async def complete_signup(auth_use_case: AuthUseCaseDep, request: CompleteSignupRequest) -> UserPublic:
     try:
         domain_user = await auth_use_case.complete_signup(
             request.token, request.password, request.full_name
@@ -74,21 +76,32 @@ async def complete_signup(auth_use_case: AuthUseCaseDep, request: CompleteSignup
     return UserPublic.model_validate(domain_user)
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=Message)
 async def refresh_token(
     response: Response,
     auth_use_case: AuthUseCaseDep,
     refresh_token: RefreshTokenDep,
     user_agent: UserAgentDep,
-):
+) -> Message | JSONResponse:
     try:
         tokens = await auth_use_case.refresh(refresh_token, user_agent)
     except InvalidCredentialsError as e:
-        cookie.delete_refresh_from_cookie(response)
-        _auth_domain_to_http(e)
-    response = cookie.set_refresh_in_cookie(response, tokens["refresh_token"])
-    logger.info("Refresh rotation success, user_id=%s", tokens["user_id"])
-    return TokenResponse(access_token=tokens["access_token"], token_type="bearer")
+        status_code = (
+            status.HTTP_401_UNAUTHORIZED
+            if "Incorrect username" in str(e)
+            else status.HTTP_403_FORBIDDEN
+        )
+        error_response = JSONResponse(
+            status_code=status_code,
+            content={"detail": str(e)},
+        )
+        cookie.delete_refresh_from_cookie(error_response)
+        cookie.delete_access_from_cookie(error_response)
+        return error_response
+    cookie.set_refresh_in_cookie(response, tokens["refresh_token"])
+    cookie.set_access_in_cookie(response, tokens["access_token"])
+    logger.info("Access token updated and refresh rotated successfully, user_id=%s", tokens["user_id"])
+    return Message(message="Access token updated successfully")
 
 
 @router.post("/logout")
@@ -98,7 +111,8 @@ async def logout(
     refresh_token: RefreshTokenDep,
 ):
     await auth_use_case.logout(refresh_token)
-    response = cookie.delete_refresh_from_cookie(response)
+    cookie.delete_refresh_from_cookie(response)
+    cookie.delete_access_from_cookie(response)
     return Message(message="Logged out successfully")
 
 
@@ -129,6 +143,9 @@ async def block_user_session(
 async def block_all_sessions(
     auth_use_case: AuthUseCaseDep,
     current_user: CurrentUser,
+    response: Response,
 ):
     count = await auth_use_case.block_all_sessions(str(current_user.id))
+    cookie.delete_refresh_from_cookie(response)
+    cookie.delete_access_from_cookie(response)
     return Message(message="Have been blocked " + str(count) + " sessions")

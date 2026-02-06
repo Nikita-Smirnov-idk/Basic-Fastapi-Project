@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 
-from app.config import settings
+from app.core.config.config import settings
 from app.domain.exceptions import InvalidCredentialsError, InactiveUserError
 from app.transport.http import cookie
 from app.transport.http.deps import UserAgentDep

@@ -1,8 +1,8 @@
 """Sync DB engine and init_db for scripts (initial_data, tests). Async session in infrastructure.persistence.postgres."""
 from sqlmodel import Session, create_engine, select
 
-from app.config import settings
-from app.infrastructure.persistence.models import User
+from app.core.config.config import settings
+from app.domain.entities.db.user import User
 from app.infrastructure.users.sync_helpers import create_user_sync
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))

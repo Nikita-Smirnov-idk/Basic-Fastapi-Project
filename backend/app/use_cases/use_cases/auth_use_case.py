@@ -11,7 +11,7 @@ from app.use_cases.ports.token_service import ITokenService
 from app.use_cases.ports.unit_of_work import IUnitOfWork
 from app.use_cases.ports.email_sender import IEmailSender
 from app.use_cases.use_cases.token_helpers import create_and_store_tokens
-from app.domain.entities.user import User as DomainUser
+from app.domain.entities.pydantic.user import User as DomainUser
 from app.domain.exceptions import (
     InvalidCredentialsError,
     InactiveUserError,
@@ -62,12 +62,11 @@ class AuthUseCase:
         self, token: str, password: str, full_name: str | None
     ) -> DomainUser:
         try:
-            payload = self._token_service.decode_token(token)
+            payload = self._token_service.decode_and_validate(token, "signup")
+            email = self._token_service.get_sub(payload)
         except ValueError:
             raise InvalidCredentialsError("Invalid token")
-        self._token_service.validate_payload_type(payload, "signup")
-        email = payload.get("sub")
-        if not email or not isinstance(email, str) or "@" not in email:
+        if not isinstance(email, str) or "@" not in email:
             raise InvalidCredentialsError("Invalid token payload")
         async with self._uow as uow:
             if await uow.users.get_by_email(email):
@@ -83,21 +82,23 @@ class AuthUseCase:
 
     async def refresh(self, refresh_token: str, user_agent: str) -> dict[str, Any]:
         try:
-            payload = self._token_service.decode_token(refresh_token)
+            payload = self._token_service.decode_and_validate(refresh_token, "refresh")
+            user_id = self._token_service.get_sub(payload)
         except ValueError:
             raise InvalidCredentialsError("Invalid refresh token")
-        
-        self._token_service.validate_payload_type(payload, "refresh")
-
-        user_id_raw = payload.get("sub")
-        if user_id_raw is None:
-            raise InvalidCredentialsError("Invalid refresh token")
-        
-        user_id = str(user_id_raw)
         refresh_data = await self._refresh_store.get_refresh_data(refresh_token)
 
-        if not refresh_data or str(refresh_data["user_id"]) != user_id or refresh_data["user_agent"] != user_agent:
+        if not refresh_data or str(refresh_data["user_id"]) != user_id:
             logger.warning("Failed refresh: invalid data, user_id=%s", user_id)
+            raise InvalidCredentialsError("Invalid Token")
+        
+        if refresh_data["user_agent"] != user_agent:
+            logger.warning("Failed refresh: invalid data, user_id=%s", user_id)
+            await self._refresh_store.block_refresh(refresh_token)
+            if "family_id" in refresh_data:
+                await self._refresh_store.block_family(
+                    refresh_data["family_id"], str(refresh_data["user_id"])
+                )
             raise InvalidCredentialsError("Invalid Token")
         
         if await self._refresh_store.is_refresh_blocked(refresh_token):
@@ -108,11 +109,18 @@ class AuthUseCase:
             raise InvalidCredentialsError("Invalid Token")
         
         if await self._refresh_store.is_family_blocked(refresh_data["family_id"]):
+            await self._refresh_store.block_refresh(refresh_token)
             logger.warning("Failed refresh: family blocked, user_id=%s", user_id)
             raise InvalidCredentialsError("Invalid Token")
-        
-        await self._refresh_store.block_refresh(refresh_token)
-        
+
+        if not await self._refresh_store.try_block_refresh(refresh_token):
+            if "family_id" in refresh_data:
+                await self._refresh_store.block_family(
+                    refresh_data["family_id"], user_id
+                )
+            logger.warning("Failed refresh: token reuse, user_id=%s", user_id)
+            raise InvalidCredentialsError("Invalid Token")
+
         return await create_and_store_tokens(
             self._token_service, self._refresh_store, user_id, user_agent
         )

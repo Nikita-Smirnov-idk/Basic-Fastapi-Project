@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.infrastructure.passwords.utils import get_password_hash, verify_password
-from app.infrastructure.persistence.models import User
+from app.domain.entities.db.user import User
 
 
 class UserRepository:

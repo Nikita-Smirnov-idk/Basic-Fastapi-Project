@@ -1,7 +1,7 @@
 from fastapi.encoders import jsonable_encoder
 from sqlmodel import Session
 
-from app.infrastructure.persistence.models import User
+from app.domain.entities.db.user import User
 from app.infrastructure.passwords.utils import verify_password
 from app.infrastructure.users.sync_helpers import (
     authenticate_user_sync,

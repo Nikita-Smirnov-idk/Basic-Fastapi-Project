@@ -28,16 +28,18 @@ class ITokenService(ABC):
         ...
 
     @abstractmethod
-    def verify_password_reset_token(self, token: str) -> str | None:
-        """Returns email (sub) or None if invalid/expired."""
+    def decode_and_validate(self, token: str, expected_type: str) -> dict[str, Any]:
+        """Decode JWT and validate type/iss. Raises ValueError on invalid/expired/wrong-type."""
         ...
 
     @abstractmethod
-    def validate_access_payload(self, payload: dict[str, Any]) -> str:
-        """Validate access token payload (type, iss). Returns sub (user_id). Raises ValueError."""
+    def get_sub(self, payload: dict[str, Any]) -> str:
+        """Extract sub claim. Raises ValueError if missing."""
         ...
 
     @abstractmethod
-    def validate_payload_type(self, payload: dict[str, Any], expected_type: str) -> None:
-        """Validate token type and issuer. Raises ValueError if invalid."""
+    def verify_token_and_get_sub(
+        self, token: str, expected_type: str, *, or_none: bool = False
+    ) -> str | None:
+        """Decode, validate type, return sub. Raises ValueError if or_none=False and invalid. Returns None if or_none=True and invalid."""
         ...

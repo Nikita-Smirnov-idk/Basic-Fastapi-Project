@@ -7,7 +7,7 @@ import logging
 from uuid import UUID
 
 from app.use_cases.ports.unit_of_work import IUnitOfWork
-from app.domain.entities.user import User as DomainUser
+from app.domain.entities.pydantic.user import User as DomainUser
 from app.domain.exceptions import UserNotFoundError
 
 logger = logging.getLogger(__name__)

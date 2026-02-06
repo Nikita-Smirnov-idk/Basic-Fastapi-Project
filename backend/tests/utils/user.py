@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.config import settings
-from app.infrastructure.persistence.models import User
+from app.core.config.config import settings
+from app.domain.entities.db.user import User
 from app.infrastructure.users.sync_helpers import (
     create_user_sync,
     get_user_by_email_sync,
@@ -16,10 +16,11 @@ def user_authentication_headers(
 ) -> dict[str, str]:
     data = {"username": email, "password": password}
     r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=data)
-    response = r.json()
-    auth_token = response["access_token"]
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    return headers
+    assert r.status_code == 200
+    access_token = r.cookies.get("access_token")
+    if not access_token:
+        raise ValueError("Login did not set access_token cookie")
+    return {"Cookie": f"access_token={access_token}"}
 
 
 def create_random_user(db: Session) -> User:

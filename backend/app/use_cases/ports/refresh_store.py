@@ -27,6 +27,11 @@ class IRefreshTokenStore(ABC):
         ...
 
     @abstractmethod
+    async def try_block_refresh(self, token: str) -> bool:
+        """Atomically block the token (claim for one-time use). Returns True if this call claimed it, False if already blocked (e.g. concurrent reuse)."""
+        ...
+
+    @abstractmethod
     async def is_refresh_blocked(self, token: str) -> bool:
         ...
 

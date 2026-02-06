@@ -45,7 +45,9 @@ class PasswordUseCase:
                 logger.info("Emails disabled, skipping password reset email for %s", email)
 
     async def reset_password(self, token: str, new_password: str) -> None:
-        email = self._token_service.verify_password_reset_token(token)
+        email = self._token_service.verify_token_and_get_sub(
+            token, "password_reset", or_none=True
+        )
         if not email:
             raise InvalidCredentialsError("Invalid or expired password reset token")
         async with self._uow as uow:

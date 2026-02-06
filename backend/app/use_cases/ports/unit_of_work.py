@@ -7,12 +7,7 @@ from app.use_cases.ports.user_repository import IUserRepository
 
 class IUnitOfWork(ABC):
     """Abstract unit of work: provides repositories and commit/rollback."""
-
-    @property
-    @abstractmethod
-    def users(self) -> IUserRepository:
-        ...
-
+    
     @abstractmethod
     async def __aenter__(self) -> "IUnitOfWork":
         ...

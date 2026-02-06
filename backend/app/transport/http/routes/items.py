@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
 
-from app.infrastructure.persistence.models import Item
+from app.domain.entities.db.user import Item
 from app.transport.http.deps import CurrentUser, SessionDep
 from app.transport.schemas import ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Message
 

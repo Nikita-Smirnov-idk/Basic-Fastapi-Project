@@ -4,7 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.infrastructure.passwords.utils import get_password_hash, verify_password
-from app.infrastructure.persistence.models import User
+from app.domain.entities.db.user import User
 
 
 def create_user_sync(

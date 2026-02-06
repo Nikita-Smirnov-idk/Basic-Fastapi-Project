@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from redis import asyncio as aioredis
 from redis.exceptions import ConnectionError, RedisError, TimeoutError
 
-from app.config import settings
+from app.core.config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +120,22 @@ class RedisRepository:
                 "blocked",
                 ex=self.EXPIRE_TIME,
             )
+        except (ConnectionError, TimeoutError, RedisError) as e:
+            logger.warning("Redis error: %s", type(e).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service unavailable. Please try again later.",
+            ) from e
+
+    async def try_block_refresh(self, token: str) -> bool:
+        """Atomically set block key only if not exists (NX). Returns True if we claimed the token, False if already blocked (e.g. concurrent reuse)."""
+        try:
+            token_hash = self.hash_refresh_token(token)
+            key = self.REFRESH_BLOCKLIST_PREFIX + token_hash
+            result = await self.redis_client.set(
+                key, "blocked", ex=self.EXPIRE_TIME, nx=True
+            )
+            return result is True
         except (ConnectionError, TimeoutError, RedisError) as e:
             logger.warning("Redis error: %s", type(e).__name__)
             raise HTTPException(

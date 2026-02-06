@@ -1,6 +1,6 @@
 from sqlmodel import Session
 
-from app.infrastructure.persistence.models import Item
+from app.domain.entities.db.user import Item
 from app.transport.schemas import ItemCreate
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_lower_string

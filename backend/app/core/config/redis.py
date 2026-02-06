@@ -1,7 +1,6 @@
 """App Redis client. Used by infrastructure and app scripts."""
 from redis import asyncio as aioredis
-
-from app.config import settings
+from app.core.config.config import settings
 
 redis_client: aioredis.Redis = aioredis.from_url(
     settings.REDIS_URI,

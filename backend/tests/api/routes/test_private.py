@@ -1,10 +1,12 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.config import settings
-from app.infrastructure.persistence.models import User
+from app.core.config.config import settings
+from app.domain.entities.db.user import User
 
 
+@pytest.mark.skip(reason="Private /private/users/ endpoint was removed; use admin or signup")
 def test_create_user(client: TestClient, db: Session) -> None:
     r = client.post(
         f"{settings.API_V1_STR}/private/users/",

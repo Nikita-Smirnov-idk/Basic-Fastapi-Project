@@ -10,7 +10,7 @@ import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from app.use_cases.ports.token_service import ITokenService
-from app.config import settings
+from app.core.config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,33 +37,54 @@ class TokenService(ITokenService):
         self._signup_expire_minutes = signup_expire_minutes
         self._password_reset_expire_hours = password_reset_expire_hours
 
-    def create_access_token(self, data: dict[str, Any]) -> str:
-        to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(minutes=self._access_expire_minutes)
-        to_encode.update({"exp": expire, "type": "access", "iss": self._issuer})
+    def _create_typed_token(
+        self,
+        data: dict[str, Any],
+        token_type: str,
+        exp_delta: timedelta,
+        *,
+        nbf: bool = False,
+    ) -> str:
+        """Common logic: add exp, type, iss to payload and encode."""
+        now = datetime.now(timezone.utc)
+        expire = now + exp_delta
+        to_encode = {
+            **data,
+            "exp": expire,
+            "type": token_type,
+            "iss": self._issuer,
+        }
+        if nbf:
+            to_encode["nbf"] = now.timestamp()
         return jwt.encode(to_encode, self._secret_key, algorithm=ALGORITHM)
+
+    def create_access_token(self, data: dict[str, Any]) -> str:
+        return self._create_typed_token(
+            data,
+            "access",
+            timedelta(minutes=self._access_expire_minutes),
+        )
 
     def create_refresh_token(self, data: dict[str, Any]) -> str:
-        to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(days=self._refresh_expire_days)
-        to_encode.update({"exp": expire, "type": "refresh", "iss": self._issuer})
-        return jwt.encode(to_encode, self._secret_key, algorithm=ALGORITHM)
+        return self._create_typed_token(
+            data,
+            "refresh",
+            timedelta(days=self._refresh_expire_days),
+        )
 
     def create_signup_token(self, data: dict[str, Any]) -> str:
-        to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(minutes=self._signup_expire_minutes)
-        to_encode.update({"exp": expire, "type": "signup", "iss": self._issuer})
-        return jwt.encode(to_encode, self._secret_key, algorithm=ALGORITHM)
+        return self._create_typed_token(
+            data,
+            "signup",
+            timedelta(minutes=self._signup_expire_minutes),
+        )
 
     def create_password_reset_token(self, email: str) -> str:
-        delta = timedelta(hours=self._password_reset_expire_hours)
-        now = datetime.now(timezone.utc)
-        expires = now + delta
-        exp = expires.timestamp()
-        return jwt.encode(
-            {"exp": exp, "nbf": now.timestamp(), "sub": email},
-            self._secret_key,
-            algorithm=ALGORITHM,
+        return self._create_typed_token(
+            {"sub": email},
+            "password_reset",
+            timedelta(hours=self._password_reset_expire_hours),
+            nbf=True,
         )
 
     def decode_token(self, token: str) -> dict[str, Any]:
@@ -76,26 +97,37 @@ class TokenService(ITokenService):
             logger.debug("Invalid token")
             raise ValueError("Invalid token") from None
 
-    def verify_password_reset_token(self, token: str) -> str | None:
-        try:
-            decoded = jwt.decode(token, self._secret_key, algorithms=[ALGORITHM])
-            return str(decoded["sub"])
-        except (InvalidTokenError, KeyError):
-            return None
-
-    def validate_access_payload(self, payload: dict[str, Any]) -> str:
-        self.validate_payload_type(payload, "access")
-        sub = payload.get("sub")
-        if sub is None:
-            raise ValueError("Invalid token payload")
-        return str(sub)
-
-    def validate_payload_type(self, payload: dict[str, Any], expected_type: str) -> None:
+    def _validate_type_and_issuer(self, payload: dict[str, Any], expected_type: str) -> None:
         """Validate token type and issuer. Raises ValueError if invalid."""
         if payload.get("type") != expected_type:
             raise ValueError(f"Invalid token payload: expected type {expected_type}")
         if payload.get("iss") != self._issuer:
             raise ValueError("Invalid token payload")
+
+    def decode_and_validate(self, token: str, expected_type: str) -> dict[str, Any]:
+        """Decode JWT and validate type/iss. Raises ValueError on invalid/expired/wrong-type."""
+        payload = self.decode_token(token)
+        self._validate_type_and_issuer(payload, expected_type)
+        return payload
+
+    def get_sub(self, payload: dict[str, Any]) -> str:
+        """Extract sub claim. Raises ValueError if missing."""
+        sub = payload.get("sub")
+        if sub is None:
+            raise ValueError("Invalid token payload")
+        return str(sub)
+
+    def verify_token_and_get_sub(
+        self, token: str, expected_type: str, *, or_none: bool = False
+    ) -> str | None:
+        """Decode, validate type, return sub. Raises ValueError if or_none=False and invalid."""
+        try:
+            payload = self.decode_and_validate(token, expected_type)
+            return self.get_sub(payload)
+        except ValueError:
+            if or_none:
+                return None
+            raise
 
 
 # Default instance for dependency injection

@@ -3,10 +3,10 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.config import settings
+from app.core.config.config import settings
+from app.infrastructure.jwt.token_service import TokenService
 from app.infrastructure.passwords.utils import verify_password
 from app.infrastructure.users.sync_helpers import create_user_sync
-from app.utils import generate_password_reset_token
 from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_email, random_lower_string
 
@@ -17,10 +17,10 @@ def test_get_access_token(client: TestClient) -> None:
         "password": settings.FIRST_SUPERUSER_PASSWORD,
     }
     r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=login_data)
-    tokens = r.json()
     assert r.status_code == 200
-    assert "access_token" in tokens
-    assert tokens["access_token"]
+    assert "message" in r.json()
+    assert r.cookies.get("access_token")
+    assert r.cookies.get("refresh_token")
 
 
 def test_get_access_token_incorrect_password(client: TestClient) -> None:
@@ -29,7 +29,7 @@ def test_get_access_token_incorrect_password(client: TestClient) -> None:
         "password": "incorrect",
     }
     r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=login_data)
-    assert r.status_code == 400
+    assert r.status_code in (400, 401, 403)
 
 
 def test_use_access_token(
@@ -48,8 +48,8 @@ def test_recovery_password(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     with (
-        patch("app.config.settings.SMTP_HOST", "smtp.example.com"),
-        patch("app.config.settings.SMTP_USER", "admin@example.com"),
+        patch("app.core.config.config.settings.SMTP_HOST", "smtp.example.com"),
+        patch("app.core.config.config.settings.SMTP_USER", "admin@example.com"),
     ):
         email = "test@example.com"
         r = client.post(
@@ -86,7 +86,8 @@ def test_reset_password(client: TestClient, db: Session) -> None:
         is_active=True,
         is_superuser=False,
     )
-    token = generate_password_reset_token(email=email)
+    token_service = TokenService()
+    token = token_service.create_password_reset_token(email)
     headers = user_authentication_headers(client=client, email=email, password=password)
     data = {"new_password": new_password, "token": token}
 

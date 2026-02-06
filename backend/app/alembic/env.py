@@ -19,8 +19,8 @@ fileConfig(config.config_file_name)
 # target_metadata = None
 
 from sqlmodel import SQLModel  # noqa
-from app.config import settings  # noqa
-from app.infrastructure.persistence.models import User, Item  # noqa 
+from app.core.config.config import settings  # noqa
+from app.domain.entities.db.user import User, Item  # noqa 
 
 target_metadata = SQLModel.metadata
 

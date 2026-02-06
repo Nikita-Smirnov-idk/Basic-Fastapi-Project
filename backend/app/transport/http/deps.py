@@ -5,8 +5,8 @@ Wires infrastructure implementations to application use cases.
 import logging
 from typing import Annotated
 
-from fastapi import Cookie, Depends, Header, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Cookie, Depends, Header, HTTPException, Security, status
+from fastapi.security import APIKeyCookie, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.use_cases.ports.refresh_store import IRefreshTokenStore
@@ -15,22 +15,30 @@ from app.use_cases.use_cases.auth_use_case import AuthUseCase
 from app.use_cases.use_cases.google_auth_use_case import GoogleAuthUseCase
 from app.use_cases.use_cases.password_use_case import PasswordUseCase
 from app.use_cases.use_cases.user_use_case import UserUseCase
-from app.config import settings
+from app.core.config.config import settings
 from app.infrastructure.email.email_sender import EmailSender, get_email_sender
 from app.infrastructure.jwt.token_service import TokenService, get_token_service
-from app.infrastructure.persistence.models import User as DBUser
+from app.domain.entities.db.user import User as DBUser
 from app.infrastructure.persistence.postgres.session import get_async_session
 from app.infrastructure.persistence.postgres.unit_of_work import UnitOfWork
 from app.infrastructure.redis.redis_repo import RedisRepository, get_redis_repo
 
 logger = logging.getLogger(__name__)
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/users/auth/login/"
-)
-
 SessionDep = Annotated[AsyncSession, Depends(get_async_session)]
-TokenDep = Annotated[str, Depends(reusable_oauth2)]
+
+access_cookie = APIKeyCookie(name="access_token", auto_error=False)
+
+async def get_access_token(
+    token: str = Security(access_cookie),
+) -> str:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return token
+TokenDep = Annotated[str, Depends(get_access_token)]
 
 
 def get_uow(session: SessionDep) -> UnitOfWork:
@@ -87,8 +95,7 @@ async def get_current_user(
     token_service: Annotated[ITokenService, Depends(get_token_service)],
 ) -> DBUser:
     try:
-        payload = token_service.decode_token(token)
-        user_id = token_service.validate_access_payload(payload)
+        user_id = token_service.verify_token_and_get_sub(token, "access")
     except ValueError as e:
         logger.warning("Invalid credentials: %s", e)
         raise HTTPException(

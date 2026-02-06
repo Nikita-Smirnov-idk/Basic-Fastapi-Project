@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
-from app.config import settings
+from app.core.config.config import settings
 from app.domain.exceptions import UserNotFoundError
 from app.transport.http.deps import CurrentUser
 from app.transport.http.routes.users.auth import auth
@@ -28,6 +28,11 @@ async def read_user_me(current_user: CurrentUser, user_use_case: UserUseCaseDep)
 
 @router.delete("/me", response_model=Message)
 async def delete_user_me(current_user: CurrentUser, user_use_case: UserUseCaseDep):
+    if current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super users are not allowed to delete themselves",
+        )
     try:
         await user_use_case.delete_me(current_user.id)
     except UserNotFoundError as e:

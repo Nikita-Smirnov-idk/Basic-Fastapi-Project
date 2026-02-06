@@ -3,9 +3,10 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, delete, func, select
 
-from app.infrastructure.persistence.models import Item, User
+from app.domain.entities.db.user import Item, User
 from app.infrastructure.passwords.utils import get_password_hash
 from app.transport.http.deps import SessionDep
 from app.transport.http.routes.admin.deps import AdminDep
@@ -32,8 +33,15 @@ async def create_user(
         hashed_password=get_password_hash(user_in.password),
     )
     session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    try:
+        await session.commit()
+        await session.refresh(user)
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists",
+        ) from None
     return user
 
 

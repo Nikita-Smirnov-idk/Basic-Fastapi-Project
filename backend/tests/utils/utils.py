@@ -3,7 +3,7 @@ import string
 
 from fastapi.testclient import TestClient
 
-from app.config import settings
+from app.core.config.config import settings
 
 
 def random_lower_string() -> str:
@@ -20,7 +20,8 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
         "password": settings.FIRST_SUPERUSER_PASSWORD,
     }
     r = client.post(f"{settings.API_V1_STR}/users/auth/login", data=login_data)
-    tokens = r.json()
-    a_token = tokens["access_token"]
-    headers = {"Authorization": f"Bearer {a_token}"}
-    return headers
+    assert r.status_code == 200
+    access_token = r.cookies.get("access_token")
+    if not access_token:
+        raise ValueError("Login did not set access_token cookie")
+    return {"Cookie": f"access_token={access_token}"}

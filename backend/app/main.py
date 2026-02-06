@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import settings
-from app.logging_config import setup_logging
+from app.core.config.config import settings
+from app.core.config.logging_config import setup_logging
 from app.transport.http.router import api_router
 from app.domain.exceptions import (
     InvalidCredentialsError,
