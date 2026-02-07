@@ -4,12 +4,29 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
-from app.core.config import settings
-from app.core.db import engine, init_db
+from app.core.config.config import settings
+from app.core.config.db import engine, init_db
 from app.main import app
-from app.models.db.models import User, Item
+from app.domain.entities.db.item import Item
+from app.domain.entities.db.user import User
+from app.transport.http.deps import get_redis_repo
+from tests.utils.fake_refresh_store import FakeRefreshStore
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
+
+_fake_refresh_store = FakeRefreshStore()
+
+
+def _get_fake_redis_repo():
+    return _fake_refresh_store
+
+
+@pytest.fixture(scope="session", autouse=True)
+def override_redis() -> Generator[None, None, None]:
+    """Replace Redis with in-memory fake to avoid event loop conflicts with TestClient."""
+    app.dependency_overrides[get_redis_repo] = _get_fake_redis_repo
+    yield
+    app.dependency_overrides.pop(get_redis_repo, None)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -25,7 +42,7 @@ def db() -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="module")
-def client() -> Generator[TestClient, None, None]:
+def client(override_redis: None) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
 

@@ -1,12 +1,19 @@
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api.main import api_router
-from app.core.config import settings
-from app.core.logging_config import setup_logging
+from app.core.config.config import settings
+from app.core.config.logging_config import setup_logging
+from app.transport.http.router import api_router
+from app.domain.exceptions import (
+    InvalidCredentialsError,
+    InactiveUserError,
+    UserNotFoundError,
+    UserAlreadyExistsError,
+)
 from prometheus_fastapi_instrumentator import Instrumentator
 
 setup_logging()
@@ -44,3 +51,25 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+# Map domain exceptions to HTTP (fallback if route did not map)
+@app.exception_handler(InvalidCredentialsError)
+async def invalid_credentials_handler(request, exc: InvalidCredentialsError):
+    status_code = 401 if "Incorrect username" in str(exc) else 403
+    return JSONResponse(status_code=status_code, content={"detail": str(exc)})
+
+
+@app.exception_handler(InactiveUserError)
+async def inactive_user_handler(request, exc: InactiveUserError):
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(UserNotFoundError)
+async def user_not_found_handler(request, exc: UserNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(UserAlreadyExistsError)
+async def user_already_exists_handler(request, exc: UserAlreadyExistsError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
