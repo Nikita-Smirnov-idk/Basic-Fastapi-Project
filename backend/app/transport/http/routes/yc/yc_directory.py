@@ -14,17 +14,11 @@ from app.transport.schemas import (
     YCSyncStatePublic,
     Message,
 )
-from app.use_cases.use_cases.yc_directory_use_case import (
-    YCDirectoryUseCase,
-    YCSearchFilters,
-)
+from app.use_cases.use_cases.yc_directory_use_case import YCSearchFilters
+from app.transport.http.routes.yc.deps import YCDirectoryUseCaseDep
 
 
 router = APIRouter(prefix="/yc", tags=["yc"])
-
-
-def get_yc_use_case(session: SessionDep) -> YCDirectoryUseCase:
-    return YCDirectoryUseCase(session=session)
 
 
 def _require_paid_or_balance(user: User) -> None:
@@ -40,7 +34,7 @@ async def list_companies(
     session: SessionDep,
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
-    yc_uc: YCDirectoryUseCase = Depends(get_yc_use_case),
+    yc_uc: YCDirectoryUseCaseDep,
     q: str | None = None,
     batch: str | None = None,
     year: int | None = None,
@@ -127,7 +121,7 @@ async def list_companies(
 async def get_meta(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
-    yc_uc: YCDirectoryUseCase = Depends(get_yc_use_case),
+    yc_uc: YCDirectoryUseCaseDep,
 ) -> YCSearchMeta:
     _require_paid_or_balance(current_user)
     background_tasks.add_task(yc_uc.ensure_auto_sync)
@@ -145,7 +139,7 @@ async def export_csv(
     current_user: CurrentUser,
     session: SessionDep,
     background_tasks: BackgroundTasks,
-    yc_uc: YCDirectoryUseCase = Depends(get_yc_use_case),
+    yc_uc: YCDirectoryUseCaseDep,
 ) -> Response:
     _require_paid_or_balance(current_user)
 
@@ -216,7 +210,7 @@ async def export_csv(
 @router.post("/sync", response_model=Message)
 async def sync_now(
     current_user: CurrentUser,
-    yc_uc: YCDirectoryUseCase = Depends(get_yc_use_case),
+    yc_uc: YCDirectoryUseCaseDep,
 ) -> Message:
     if not current_user.is_superuser:
         raise HTTPException(
@@ -230,7 +224,7 @@ async def sync_now(
 @router.get("/sync-state", response_model=YCSyncStatePublic)
 async def get_sync_state(
     current_user: CurrentUser,
-    yc_uc: YCDirectoryUseCase = Depends(get_yc_use_case),
+    yc_uc: YCDirectoryUseCaseDep,
 ) -> YCSyncStatePublic:
     if not current_user.is_superuser:
         raise HTTPException(

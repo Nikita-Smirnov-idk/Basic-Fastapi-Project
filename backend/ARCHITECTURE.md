@@ -11,7 +11,7 @@
 ## Layers (dependency rule: inner layers do not depend on outer)
 
 ### 1. **Domain** (`app/domain`)
-- **Entities** (`app/domain/entities`): `User`, `Item` — pure Pydantic models, no DB/ORM.
+- **Entities** (`app/domain/entities`): `User` — pure Pydantic models, no DB/ORM.
 - **Value objects** (`app/domain/value_objects.py`): `UserId`, `Email`.
 - **Exceptions** (`app/domain/exceptions.py`): `DomainException`, `UserNotFoundError`, `InvalidCredentialsError`, `InactiveUserError`, `UserAlreadyExistsError`.
 - No dependencies on use_cases, infrastructure, or transport.
@@ -38,7 +38,7 @@
   - **router.py**: composes all route modules (users, admin, items, utils).  
   - **cookie.py**: refresh token cookie helpers.  
   - **routes/**: admin, items, users (auth, passwords, google_auth), utils.
-- **Schemas** (`app/transport/schemas`): request/response DTOs (Message, UserCreate, UserPublic, TokenResponse, ItemCreate, ItemPublic, etc.).
+- **Schemas** (`app/transport/schemas`): request/response DTOs (Message, UserCreate, UserPublic, TokenResponse, etc.).
 - Routes call use cases and map domain exceptions to HTTP (or rely on `app.main` exception handlers).
 
 ### 5. **App** (`app/`)
@@ -51,9 +51,9 @@
 
 ## Models
 
-- **DB models** (`app/infrastructure/persistence/models.py`): SQLModel `table=True` only (User, Item). Used by repositories and Alembic.
-- **Transport schemas** (`app/transport/schemas`): request/response DTOs (UserCreate, UserPublic, TokenResponse, SessionOut, ItemCreate, ItemPublic, etc.).
-- **Domain entities** (`app/domain/entities`): pure domain User, Item (no ORM).
+- **DB models** (`app/infrastructure/persistence/models.py`): SQLModel `table=True` only (User). Used by repositories and Alembic.
+- **Transport schemas** (`app/transport/schemas`): request/response DTOs (UserCreate, UserPublic, TokenResponse, SessionOut, etc.).
+- **Domain entities** (`app/domain/entities`): pure domain User (no ORM).
 
 ## Dependency injection (FastAPI)
 

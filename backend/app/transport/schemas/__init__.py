@@ -16,7 +16,6 @@ from app.transport.schemas.users import (
     UpdatePassword,
     UserRegister,
 )
-from app.transport.schemas.items import ItemCreate, ItemUpdate, ItemPublic, ItemsPublic
 from app.transport.schemas.yc import (
     YCFounderPublic,
     YCCompanyPublic,
@@ -41,10 +40,6 @@ __all__ = [
     "UserUpdateMe",
     "UpdatePassword",
     "UserRegister",
-    "ItemCreate",
-    "ItemUpdate",
-    "ItemPublic",
-    "ItemsPublic",
     "YCFounderPublic",
     "YCCompanyPublic",
     "YCCompaniesPublic",

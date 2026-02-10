@@ -4,9 +4,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, delete, func, select
+from sqlmodel import func, select
 
-from app.domain.entities.db.user import Item, User
+from app.domain.entities.db.user import User
 from app.infrastructure.passwords.utils import get_password_hash
 from app.transport.http.deps import SessionDep, CurrentUser
 from app.transport.http.routes.admin.deps import AdminDep
@@ -88,8 +88,6 @@ async def delete_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super users are not allowed to delete themselves",
         )
-    stmt = delete(Item).where(col(Item.owner_id) == user_id)
-    await session.execute(stmt)
     await session.delete(user)
     await session.commit()
     return Message(message="User deleted successfully")

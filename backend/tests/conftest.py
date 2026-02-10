@@ -7,7 +7,6 @@ from sqlmodel import Session, delete
 from app.core.config.config import settings
 from app.core.config.db import engine, init_db
 from app.main import app
-from app.domain.entities.db.item import Item
 from app.domain.entities.db.user import User
 from app.transport.http.deps import get_redis_repo
 from tests.utils.fake_refresh_store import FakeRefreshStore
@@ -34,8 +33,6 @@ def db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         init_db(session)
         yield session
-        statement = delete(Item)
-        session.execute(statement)
         statement = delete(User)
         session.execute(statement)
         session.commit()
