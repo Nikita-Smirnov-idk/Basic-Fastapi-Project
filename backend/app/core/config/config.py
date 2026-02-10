@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     BACKEND_HOST: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
+    # YC directory auto‑sync interval in days
+    YC_AUTO_SYNC_DAYS: int = 5
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def IS_PROD(self) -> bool:

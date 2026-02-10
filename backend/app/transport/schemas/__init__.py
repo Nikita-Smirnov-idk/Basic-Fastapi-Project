@@ -17,6 +17,13 @@ from app.transport.schemas.users import (
     UserRegister,
 )
 from app.transport.schemas.items import ItemCreate, ItemUpdate, ItemPublic, ItemsPublic
+from app.transport.schemas.yc import (
+    YCFounderPublic,
+    YCCompanyPublic,
+    YCCompaniesPublic,
+    YCSearchMeta,
+    YCSyncStatePublic,
+)
 
 __all__ = [
     "Message",
@@ -38,4 +45,9 @@ __all__ = [
     "ItemUpdate",
     "ItemPublic",
     "ItemsPublic",
+    "YCFounderPublic",
+    "YCCompanyPublic",
+    "YCCompaniesPublic",
+    "YCSearchMeta",
+    "YCSyncStatePublic",
 ]
