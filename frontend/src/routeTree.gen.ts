@@ -9,314 +9,226 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as YcRouteImport } from './routes/yc'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as UsersMeRouteImport } from './routes/users.me'
-import { Route as AuthSignupRouteImport } from './routes/auth.signup'
-import { Route as AuthSessionsRouteImport } from './routes/auth.sessions'
-import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
-import { Route as AuthRecoverPasswordRouteImport } from './routes/auth.recover-password'
-import { Route as AuthLoginRouteImport } from './routes/auth.login'
-import { Route as AuthCompleteSignupRouteImport } from './routes/auth.complete-signup'
-import { Route as AdminYcSyncRouteImport } from './routes/admin.yc-sync'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LayoutRouteImport } from './routes/_layout'
+import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 
-const YcRoute = YcRouteImport.update({
-  id: '/yc',
-  path: '/yc',
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HealthRoute = HealthRouteImport.update({
-  id: '/health',
-  path: '/health',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const RecoverPasswordRoute = RecoverPasswordRouteImport.update({
+  id: '/recover-password',
+  path: '/recover-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutRoute = LayoutRouteImport.update({
+  id: '/_layout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => LayoutRoute,
 } as any)
-const UsersMeRoute = UsersMeRouteImport.update({
-  id: '/users/me',
-  path: '/users/me',
-  getParentRoute: () => rootRouteImport,
+const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LayoutRoute,
 } as any)
-const AuthSignupRoute = AuthSignupRouteImport.update({
-  id: '/auth/signup',
-  path: '/auth/signup',
-  getParentRoute: () => rootRouteImport,
+const LayoutItemsRoute = LayoutItemsRouteImport.update({
+  id: '/items',
+  path: '/items',
+  getParentRoute: () => LayoutRoute,
 } as any)
-const AuthSessionsRoute = AuthSessionsRouteImport.update({
-  id: '/auth/sessions',
-  path: '/auth/sessions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
-  id: '/auth/reset-password',
-  path: '/auth/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRecoverPasswordRoute = AuthRecoverPasswordRouteImport.update({
-  id: '/auth/recover-password',
-  path: '/auth/recover-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/auth/login',
-  path: '/auth/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthCompleteSignupRoute = AuthCompleteSignupRouteImport.update({
-  id: '/auth/complete-signup',
-  path: '/auth/complete-signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminYcSyncRoute = AdminYcSyncRouteImport.update({
-  id: '/yc-sync',
-  path: '/yc-sync',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
+const LayoutAdminRoute = LayoutAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => LayoutRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/health': typeof HealthRoute
-  '/yc': typeof YcRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/yc-sync': typeof AdminYcSyncRoute
-  '/auth/complete-signup': typeof AuthCompleteSignupRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/recover-password': typeof AuthRecoverPasswordRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/auth/sessions': typeof AuthSessionsRoute
-  '/auth/signup': typeof AuthSignupRoute
-  '/users/me': typeof UsersMeRoute
+  '/login': typeof LoginRoute
+  '/recover-password': typeof RecoverPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
+  '/admin': typeof LayoutAdminRoute
+  '/items': typeof LayoutItemsRoute
+  '/settings': typeof LayoutSettingsRoute
+  '/': typeof LayoutIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/health': typeof HealthRoute
-  '/yc': typeof YcRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/yc-sync': typeof AdminYcSyncRoute
-  '/auth/complete-signup': typeof AuthCompleteSignupRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/recover-password': typeof AuthRecoverPasswordRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/auth/sessions': typeof AuthSessionsRoute
-  '/auth/signup': typeof AuthSignupRoute
-  '/users/me': typeof UsersMeRoute
+  '/login': typeof LoginRoute
+  '/recover-password': typeof RecoverPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
+  '/admin': typeof LayoutAdminRoute
+  '/items': typeof LayoutItemsRoute
+  '/settings': typeof LayoutSettingsRoute
+  '/': typeof LayoutIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/health': typeof HealthRoute
-  '/yc': typeof YcRoute
-  '/admin/users': typeof AdminUsersRoute
-  '/admin/yc-sync': typeof AdminYcSyncRoute
-  '/auth/complete-signup': typeof AuthCompleteSignupRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/recover-password': typeof AuthRecoverPasswordRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/auth/sessions': typeof AuthSessionsRoute
-  '/auth/signup': typeof AuthSignupRoute
-  '/users/me': typeof UsersMeRoute
+  '/_layout': typeof LayoutRouteWithChildren
+  '/login': typeof LoginRoute
+  '/recover-password': typeof RecoverPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/signup': typeof SignupRoute
+  '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/': typeof LayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
+    | '/login'
+    | '/recover-password'
+    | '/reset-password'
+    | '/signup'
     | '/admin'
-    | '/health'
-    | '/yc'
-    | '/admin/users'
-    | '/admin/yc-sync'
-    | '/auth/complete-signup'
-    | '/auth/login'
-    | '/auth/recover-password'
-    | '/auth/reset-password'
-    | '/auth/sessions'
-    | '/auth/signup'
-    | '/users/me'
+    | '/items'
+    | '/settings'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
+    | '/login'
+    | '/recover-password'
+    | '/reset-password'
+    | '/signup'
     | '/admin'
-    | '/health'
-    | '/yc'
-    | '/admin/users'
-    | '/admin/yc-sync'
-    | '/auth/complete-signup'
-    | '/auth/login'
-    | '/auth/recover-password'
-    | '/auth/reset-password'
-    | '/auth/sessions'
-    | '/auth/signup'
-    | '/users/me'
+    | '/items'
+    | '/settings'
+    | '/'
   id:
     | '__root__'
-    | '/'
-    | '/admin'
-    | '/health'
-    | '/yc'
-    | '/admin/users'
-    | '/admin/yc-sync'
-    | '/auth/complete-signup'
-    | '/auth/login'
-    | '/auth/recover-password'
-    | '/auth/reset-password'
-    | '/auth/sessions'
-    | '/auth/signup'
-    | '/users/me'
+    | '/_layout'
+    | '/login'
+    | '/recover-password'
+    | '/reset-password'
+    | '/signup'
+    | '/_layout/admin'
+    | '/_layout/items'
+    | '/_layout/settings'
+    | '/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
-  HealthRoute: typeof HealthRoute
-  YcRoute: typeof YcRoute
-  AuthCompleteSignupRoute: typeof AuthCompleteSignupRoute
-  AuthLoginRoute: typeof AuthLoginRoute
-  AuthRecoverPasswordRoute: typeof AuthRecoverPasswordRoute
-  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
-  AuthSessionsRoute: typeof AuthSessionsRoute
-  AuthSignupRoute: typeof AuthSignupRoute
-  UsersMeRoute: typeof UsersMeRoute
+  LayoutRoute: typeof LayoutRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  RecoverPasswordRoute: typeof RecoverPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/yc': {
-      id: '/yc'
-      path: '/yc'
-      fullPath: '/yc'
-      preLoaderRoute: typeof YcRouteImport
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/health': {
-      id: '/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/recover-password': {
+      id: '/recover-password'
+      path: '/recover-password'
+      fullPath: '/recover-password'
+      preLoaderRoute: typeof RecoverPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_layout': {
+      id: '/_layout'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof LayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_layout/': {
+      id: '/_layout/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof LayoutIndexRouteImport
+      parentRoute: typeof LayoutRoute
     }
-    '/users/me': {
-      id: '/users/me'
-      path: '/users/me'
-      fullPath: '/users/me'
-      preLoaderRoute: typeof UsersMeRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_layout/settings': {
+      id: '/_layout/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
     }
-    '/auth/signup': {
-      id: '/auth/signup'
-      path: '/auth/signup'
-      fullPath: '/auth/signup'
-      preLoaderRoute: typeof AuthSignupRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_layout/items': {
+      id: '/_layout/items'
+      path: '/items'
+      fullPath: '/items'
+      preLoaderRoute: typeof LayoutItemsRouteImport
+      parentRoute: typeof LayoutRoute
     }
-    '/auth/sessions': {
-      id: '/auth/sessions'
-      path: '/auth/sessions'
-      fullPath: '/auth/sessions'
-      preLoaderRoute: typeof AuthSessionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/reset-password': {
-      id: '/auth/reset-password'
-      path: '/auth/reset-password'
-      fullPath: '/auth/reset-password'
-      preLoaderRoute: typeof AuthResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/recover-password': {
-      id: '/auth/recover-password'
-      path: '/auth/recover-password'
-      fullPath: '/auth/recover-password'
-      preLoaderRoute: typeof AuthRecoverPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/auth/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/complete-signup': {
-      id: '/auth/complete-signup'
-      path: '/auth/complete-signup'
-      fullPath: '/auth/complete-signup'
-      preLoaderRoute: typeof AuthCompleteSignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/yc-sync': {
-      id: '/admin/yc-sync'
-      path: '/yc-sync'
-      fullPath: '/admin/yc-sync'
-      preLoaderRoute: typeof AdminYcSyncRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
+    '/_layout/admin': {
+      id: '/_layout/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof LayoutAdminRouteImport
+      parentRoute: typeof LayoutRoute
     }
   }
 }
 
-interface AdminRouteChildren {
-  AdminUsersRoute: typeof AdminUsersRoute
-  AdminYcSyncRoute: typeof AdminYcSyncRoute
+interface LayoutRouteChildren {
+  LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutIndexRoute: typeof LayoutIndexRoute
 }
 
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminUsersRoute: AdminUsersRoute,
-  AdminYcSyncRoute: AdminYcSyncRoute,
+const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutAdminRoute: LayoutAdminRoute,
+  LayoutItemsRoute: LayoutItemsRoute,
+  LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutIndexRoute: LayoutIndexRoute,
 }
 
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+const LayoutRouteWithChildren =
+  LayoutRoute._addFileChildren(LayoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
-  HealthRoute: HealthRoute,
-  YcRoute: YcRoute,
-  AuthCompleteSignupRoute: AuthCompleteSignupRoute,
-  AuthLoginRoute: AuthLoginRoute,
-  AuthRecoverPasswordRoute: AuthRecoverPasswordRoute,
-  AuthResetPasswordRoute: AuthResetPasswordRoute,
-  AuthSessionsRoute: AuthSessionsRoute,
-  AuthSignupRoute: AuthSignupRoute,
-  UsersMeRoute: UsersMeRoute,
+  LayoutRoute: LayoutRouteWithChildren,
+  LoginRoute: LoginRoute,
+  RecoverPasswordRoute: RecoverPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

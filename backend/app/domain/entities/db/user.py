@@ -5,7 +5,7 @@ Domain entities live in domain/entities; transport schemas in transport/schemas.
 import uuid
 
 from pydantic import EmailStr
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class UserBase(SQLModel):
@@ -14,8 +14,6 @@ class UserBase(SQLModel):
     is_superuser: bool = False
     is_verified: bool = False
     full_name: str | None = Field(default=None, max_length=255)
-    plan: str = Field(default="free", max_length=32, index=True)
-    balance_cents: int = Field(default=0, index=True)
 
 
 class User(UserBase, table=True):

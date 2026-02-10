@@ -1,4 +1,3 @@
-from .utils import utils
-from . import admin, users
+from . import admin, users, utils
 
 __all__ = ["admin", "users", "utils"]

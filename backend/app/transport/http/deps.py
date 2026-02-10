@@ -23,7 +23,6 @@ from app.domain.entities.db.user import User as DBUser
 from app.infrastructure.persistence.postgres.session import get_async_session
 from app.infrastructure.persistence.postgres.unit_of_work import UnitOfWork
 from app.infrastructure.redis.redis_repo import RedisRepository, get_redis_repo
-from app.use_cases.use_cases.yc_directory_use_case import YCDirectoryUseCase
 
 logger = logging.getLogger(__name__)
 
@@ -139,10 +138,6 @@ def get_current_active_superuser(current_user: DBUser = Depends(get_current_user
     return current_user
 
 
-def get_yc_use_case(session: SessionDep) -> YCDirectoryUseCase:
-    return YCDirectoryUseCase(session=session)
-
-YCDirectoryUseCaseDep = Annotated[YCDirectoryUseCase, Depends(get_yc_use_case)]
 UserAgentDep = Annotated[str, Depends(get_user_agent)]
 RefreshTokenDep = Annotated[str | None, Depends(get_refresh_token_from_cookie)]
 AuthUseCaseDep = Annotated[AuthUseCase, Depends(get_auth_use_case)]

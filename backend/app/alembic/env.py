@@ -21,9 +21,6 @@ fileConfig(config.config_file_name)
 from sqlmodel import SQLModel  # noqa
 from app.core.config.config import settings  # noqa
 from app.domain.entities.db.user import User  # noqa 
-from app.domain.entities.db.yc_company import YCCompany  # noqa
-from app.domain.entities.db.yc_founder import YCFounder  # noqa
-from app.domain.entities.db.yc_sync_state import YCSyncState  # noqa
 
 target_metadata = SQLModel.metadata
 

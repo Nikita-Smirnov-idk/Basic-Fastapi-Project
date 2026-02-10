@@ -98,7 +98,7 @@ class EmailService:
     def generate_reset_password_email(self, *, email_to: str, email: str, token: str) -> EmailData:
         project_name = self.project_name
         subject = f"{project_name} - Password recovery for user {email}"
-        link = f"{self.frontend_host}/auth/reset-password?token={token}"
+        link = f"{self.frontend_host}/reset-password?token={token}"
         html_content = self.render_email_template(
             template_name="reset_password.html",
             context={
@@ -134,7 +134,7 @@ class EmailService:
         """Генерирует email для подтверждения регистрации"""
         project_name = self.project_name
         subject = f"{project_name} - Подтвердите регистрацию"
-        link = f"{self.frontend_host}/auth/complete-signup?token={token}"
+        link = f"{self.frontend_host}/verify?token={token}"
         html_content = self.render_email_template(
             template_name="signup_confirmation.html",
             context={
