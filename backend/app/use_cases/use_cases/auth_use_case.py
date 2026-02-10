@@ -47,12 +47,12 @@ class AuthUseCase:
                 self._token_service, self._refresh_store, str(user.id), user_agent
             )
 
-    async def start_signup(self, email: str, password: str, full_name: str | None) -> None:
+    async def start_signup(self, email: str, full_name: str | None) -> None:
         async with self._uow as uow:
             if await uow.users.get_by_email(email):
                 return
         signup_token = self._token_service.create_signup_token(
-            {"sub": email, "password": password, "full_name": full_name}
+            {"sub": email, "full_name": full_name}
         )
         if self._emails_enabled:
             self._email_sender.send_signup_confirmation(email=email, token=signup_token)
@@ -60,20 +60,19 @@ class AuthUseCase:
         else:
             logger.info("Emails disabled, skipping signup email for %s", email)
 
-    async def complete_signup(self, token: str) -> DomainUser:
+    async def complete_signup(self, token: str, password: str) -> DomainUser:
         try:
             payload = self._token_service.decode_and_validate(token, "signup")
             email = self._token_service.get_sub(payload)
-            password = payload.get("password")
             full_name = payload.get("full_name")
         except ValueError:
             raise InvalidCredentialsError("Invalid token")
         if not isinstance(email, str) or "@" not in email:
             raise InvalidCredentialsError("Invalid token payload")
-        if not isinstance(password, str) or len(password) < 8:
-            raise InvalidCredentialsError("Invalid token payload")
         if full_name is not None and not isinstance(full_name, str):
             raise InvalidCredentialsError("Invalid token payload")
+        if not isinstance(password, str) or len(password) < 8:
+            raise InvalidCredentialsError("Invalid password")
         async with self._uow as uow:
             if await uow.users.get_by_email(email):
                 raise UserAlreadyExistsError("User with this email already exists")
