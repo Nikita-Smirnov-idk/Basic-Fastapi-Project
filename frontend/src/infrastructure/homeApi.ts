@@ -1,8 +1,5 @@
 import type { HomePageData } from "@/domain/home/types/home"
-// import { httpRequest } from "@/pkg/httpClient"
 
-// В реальном приложении данные можно получать с бэкенда (например, /api/home).
-// Пока что вернем мок, чтобы интерфейс сразу работал.
 export async function fetchHomePageData(): Promise<HomePageData> {
   return {
     title: "FeatureBoard",
