@@ -16,6 +16,13 @@ from app.transport.schemas.users import (
     UpdatePassword,
     UserRegister,
 )
+from app.transport.schemas.yc import (
+    YCFounderPublic,
+    YCCompanyPublic,
+    YCCompaniesPublic,
+    YCSearchMeta,
+    YCSyncStatePublic,
+)
 
 __all__ = [
     "Message",
@@ -33,4 +40,9 @@ __all__ = [
     "UserUpdateMe",
     "UpdatePassword",
     "UserRegister",
+    "YCFounderPublic",
+    "YCCompanyPublic",
+    "YCCompaniesPublic",
+    "YCSearchMeta",
+    "YCSyncStatePublic",
 ]

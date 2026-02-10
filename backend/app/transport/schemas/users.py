@@ -12,6 +12,8 @@ class UserBaseSchema(SQLModel):
     is_superuser: bool = False
     is_verified: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    plan: str = Field(default="free", max_length=32)
+    balance_cents: int = 0
 
 
 class UserCreate(UserBaseSchema):
