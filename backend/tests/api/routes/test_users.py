@@ -179,10 +179,10 @@ def test_register_user(client: TestClient, db: Session) -> None:
 
     token_service = TokenService()
     token = token_service.create_signup_token(
-        {"sub": username, "password": password, "full_name": full_name}
+        {"sub": username, "full_name": full_name}
     )
 
-    data = {"token": token}
+    data = {"token": token, "password": password}
     r = client.post(
         f"{settings.API_V1_STR}/users/auth/complete-signup",
         json=data,
@@ -207,10 +207,10 @@ def test_register_user_already_exists_error(client: TestClient, db: Session) -> 
 
     token_service = TokenService()
     token = token_service.create_signup_token(
-        {"sub": settings.FIRST_SUPERUSER, "password": password, "full_name": full_name}
+        {"sub": settings.FIRST_SUPERUSER, "full_name": full_name}
     )
 
-    data = {"token": token}
+    data = {"token": token, "password": password}
     r = client.post(
         f"{settings.API_V1_STR}/users/auth/complete-signup",
         json=data,

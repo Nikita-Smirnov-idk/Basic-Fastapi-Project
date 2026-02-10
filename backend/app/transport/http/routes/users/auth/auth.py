@@ -61,14 +61,14 @@ async def login(
 
 @router.post("/start-signup", status_code=status.HTTP_200_OK, response_model=Message)
 async def start_signup(auth_use_case: AuthUseCaseDep, request: StartSignupRequest) -> Message:
-    await auth_use_case.start_signup(request.email, request.password, request.full_name)
+    await auth_use_case.start_signup(request.email, request.full_name)
     return Message(message="If this email is not registered, you will receive a confirmation email")
 
 
 @router.post("/complete-signup", response_model=UserPublic)
 async def complete_signup(auth_use_case: AuthUseCaseDep, request: CompleteSignupRequest) -> UserPublic:
     try:
-        domain_user = await auth_use_case.complete_signup(request.token)
+        domain_user = await auth_use_case.complete_signup(request.token, request.password)
     except (InvalidCredentialsError, UserAlreadyExistsError) as e:
         _auth_domain_to_http(e)
     return UserPublic.model_validate(domain_user)
