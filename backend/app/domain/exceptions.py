@@ -29,3 +29,9 @@ class InactiveUserError(DomainException):
     """User account is inactive."""
 
     pass
+
+
+class AdminCannotDeleteSelfError(DomainException):
+    """Admin is not allowed to delete their own account."""
+
+    pass

@@ -62,3 +62,8 @@ class IUserRepository(ABC):
     @abstractmethod
     async def delete(self, user: Any) -> None:
         ...
+
+    @abstractmethod
+    async def get_list(self, *, skip: int = 0, limit: int = 100) -> tuple[list[Any], int]:
+        """Return (list of users, total count)."""
+        ...
