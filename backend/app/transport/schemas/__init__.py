@@ -16,7 +16,6 @@ from app.transport.schemas.users import (
     UpdatePassword,
     UserRegister,
 )
-from app.transport.schemas.items import ItemCreate, ItemUpdate, ItemPublic, ItemsPublic
 
 __all__ = [
     "Message",
@@ -34,8 +33,4 @@ __all__ = [
     "UserUpdateMe",
     "UpdatePassword",
     "UserRegister",
-    "ItemCreate",
-    "ItemUpdate",
-    "ItemPublic",
-    "ItemsPublic",
 ]
