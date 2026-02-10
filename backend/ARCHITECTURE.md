@@ -35,9 +35,9 @@
 ### 4. **Transport** (`app/transport`)
 - **HTTP** (`app/transport/http`):  
   - **deps.py**: wires infrastructure to use cases (`get_async_session`, `get_uow`, `get_token_service`, `get_redis_repo`, `get_*_use_case`, `get_current_user`, `get_current_active_superuser`).  
-  - **router.py**: composes all route modules (users, admin, items, utils).  
+  - **router.py**: composes all route modules (users, admin, utils).  
   - **cookie.py**: refresh token cookie helpers.  
-  - **routes/**: admin, items, users (auth, passwords, google_auth), utils.
+  - **routes/**: admin, users (auth, passwords, google_auth), utils.
 - **Schemas** (`app/transport/schemas`): request/response DTOs (Message, UserCreate, UserPublic, TokenResponse, etc.).
 - Routes call use cases and map domain exceptions to HTTP (or rely on `app.main` exception handlers).
 

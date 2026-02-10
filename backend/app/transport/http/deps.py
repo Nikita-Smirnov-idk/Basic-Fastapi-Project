@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.use_cases.ports.refresh_store import IRefreshTokenStore
 from app.use_cases.ports.token_service import ITokenService
+from app.use_cases.use_cases.admin_use_case import AdminUseCase
 from app.use_cases.use_cases.auth_use_case import AuthUseCase
 from app.use_cases.use_cases.google_auth_use_case import GoogleAuthUseCase
 from app.use_cases.use_cases.password_use_case import PasswordUseCase
@@ -78,6 +79,10 @@ def get_user_use_case(uow: UnitOfWork = Depends(get_uow)) -> UserUseCase:
     return UserUseCase(uow=uow)
 
 
+def get_admin_use_case(uow: UnitOfWork = Depends(get_uow)) -> AdminUseCase:
+    return AdminUseCase(uow=uow)
+
+
 def get_google_auth_use_case(
     uow: UnitOfWork = Depends(get_uow),
     refresh_store: RedisRepository = Depends(get_redis_repo),
@@ -143,4 +148,5 @@ RefreshTokenDep = Annotated[str | None, Depends(get_refresh_token_from_cookie)]
 AuthUseCaseDep = Annotated[AuthUseCase, Depends(get_auth_use_case)]
 PasswordUseCaseDep = Annotated[PasswordUseCase, Depends(get_password_use_case)]
 UserUseCaseDep = Annotated[UserUseCase, Depends(get_user_use_case)]
+AdminUseCaseDep = Annotated[AdminUseCase, Depends(get_admin_use_case)]
 GoogleAuthUseCaseDep = Annotated[GoogleAuthUseCase, Depends(get_google_auth_use_case)]

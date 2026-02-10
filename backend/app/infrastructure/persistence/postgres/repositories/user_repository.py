@@ -2,7 +2,7 @@
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.infrastructure.passwords.utils import get_password_hash, verify_password
 from app.domain.entities.db.user import User
@@ -90,3 +90,14 @@ class UserRepository:
 
     async def delete(self, user: User) -> None:
         await self.session.delete(user)
+
+    async def get_list(
+        self, *, skip: int = 0, limit: int = 100
+    ) -> tuple[list[User], int]:
+        count_stmt = select(func.count()).select_from(User)
+        count_result = await self.session.execute(count_stmt)
+        total = count_result.scalar_one()
+        stmt = select(User).offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        users = list(result.scalars().all())
+        return (users, total)

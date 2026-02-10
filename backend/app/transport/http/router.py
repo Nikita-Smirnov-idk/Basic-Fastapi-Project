@@ -2,7 +2,7 @@
 from app.transport.http.routes.utils import utils
 from fastapi import APIRouter
 
-from app.transport.http.routes import admin, users
+from app.transport.http.routes import admin, users, utils
 from app.transport.http.routes.yc import yc_directory
 
 api_router = APIRouter()
