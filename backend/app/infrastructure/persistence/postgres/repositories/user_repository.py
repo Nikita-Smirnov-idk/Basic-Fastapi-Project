@@ -1,5 +1,6 @@
 """User repository: persistence for User. Implements use_cases.ports.IUserRepository."""
 from typing import Any
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
@@ -74,17 +75,20 @@ class UserRepository:
         extra: dict[str, Any] = {}
         if "password" in data:
             extra["hashed_password"] = get_password_hash(data.pop("password"))
+        extra["updated_at"] = datetime.now()
         user.sqlmodel_update(data, update=extra)
         self.session.add(user)
         return user
 
     def change_password(self, *, user: User, new_password: str) -> User:
         user.hashed_password = get_password_hash(new_password)
+        user.updated_at = datetime.now()
         self.session.add(user)
         return user
 
     def link_google_id(self, *, user: User, google_id: str) -> User:
         user.google_id = google_id
+        user.updated_at = datetime.now()
         self.session.add(user)
         return user
 
@@ -97,7 +101,7 @@ class UserRepository:
         count_stmt = select(func.count()).select_from(User)
         count_result = await self.session.execute(count_stmt)
         total = count_result.scalar_one()
-        stmt = select(User).offset(skip).limit(limit)
+        stmt = select(User).order_by(User.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         users = list(result.scalars().all())
         return (users, total)

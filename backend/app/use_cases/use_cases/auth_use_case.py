@@ -152,9 +152,9 @@ class AuthUseCase:
             await self._refresh_store.block_refresh(token_jti)
             if "family_id" in refresh_data:
                 await self._refresh_store.block_family(
-                    refresh_data["family_id"], refresh_data["user_id"]
+                    refresh_data["family_id"], refresh_data["sub"]
                 )
-            logger.info("Logout, user_id=%s", refresh_data["user_id"])
+            logger.info("Logout, user_id=%s", refresh_data["sub"])
 
     async def get_sessions(self, user_id: str) -> list[dict[str, Any]]:
         sessions_dict = await self._refresh_store.get_sessions_by_user_id(user_id)

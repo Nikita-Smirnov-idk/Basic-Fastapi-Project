@@ -23,6 +23,11 @@ from app.transport.schemas.yc import (
     YCSearchMeta,
     YCSyncStatePublic,
 )
+from app.transport.schemas.admin import (
+    PrivateUserCreate,
+    AdminDashboardStats,
+    BalanceUpdate,
+)
 
 __all__ = [
     "Message",
@@ -45,4 +50,7 @@ __all__ = [
     "YCCompaniesPublic",
     "YCSearchMeta",
     "YCSyncStatePublic",
+    "PrivateUserCreate",
+    "AdminDashboardStats",
+    "BalanceUpdate",
 ]

@@ -1,10 +1,11 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.transport.http.rate_limit import limiter, PER_ROUTE_LIMIT
 from app.domain.exceptions import (
     InvalidCredentialsError,
     InactiveUserError,
@@ -41,7 +42,9 @@ def _auth_domain_to_http(exc: Exception) -> None:
 
 
 @router.post("/login", response_model=Message)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def login(
+    request: Request,
     response: Response,
     auth_use_case: AuthUseCaseDep,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -60,22 +63,34 @@ async def login(
 
 
 @router.post("/start-signup", status_code=status.HTTP_200_OK, response_model=Message)
-async def start_signup(auth_use_case: AuthUseCaseDep, request: StartSignupRequest) -> Message:
-    await auth_use_case.start_signup(request.email, request.full_name)
+@limiter.limit(PER_ROUTE_LIMIT)
+async def start_signup(
+    request: Request,
+    auth_use_case: AuthUseCaseDep,
+    body: StartSignupRequest,
+) -> Message:
+    await auth_use_case.start_signup(body.email, body.full_name)
     return Message(message="If this email is not registered, you will receive a confirmation email")
 
 
 @router.post("/complete-signup", response_model=UserPublic)
-async def complete_signup(auth_use_case: AuthUseCaseDep, request: CompleteSignupRequest) -> UserPublic:
+@limiter.limit(PER_ROUTE_LIMIT)
+async def complete_signup(
+    request: Request,
+    auth_use_case: AuthUseCaseDep,
+    body: CompleteSignupRequest,
+) -> UserPublic:
     try:
-        domain_user = await auth_use_case.complete_signup(request.token, request.password)
+        domain_user = await auth_use_case.complete_signup(body.token, body.password)
     except (InvalidCredentialsError, UserAlreadyExistsError) as e:
         _auth_domain_to_http(e)
     return UserPublic.model_validate(domain_user)
 
 
 @router.post("/refresh", response_model=Message)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def refresh_token(
+    request: Request,
     response: Response,
     auth_use_case: AuthUseCaseDep,
     refresh_token: RefreshTokenDep,
@@ -103,7 +118,9 @@ async def refresh_token(
 
 
 @router.post("/logout")
+@limiter.limit(PER_ROUTE_LIMIT)
 async def logout(
+    request: Request,
     response: Response,
     auth_use_case: AuthUseCaseDep,
     refresh_token: RefreshTokenDep,
@@ -115,7 +132,9 @@ async def logout(
 
 
 @router.get("/my-sessions", response_model=SessionsListOut)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def get_my_sessions(
+    request: Request,
     current_user: CurrentUser,
     auth_use_case: AuthUseCaseDep,
 ):
@@ -125,20 +144,24 @@ async def get_my_sessions(
 
 
 @router.post("/block", status_code=status.HTTP_200_OK)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def block_user_session(
-    request: BlockSessionRequest,
+    request: Request,
+    body: BlockSessionRequest,
     current_user: CurrentUser,
     auth_use_case: AuthUseCaseDep,
 ):
     try:
-        await auth_use_case.block_session(str(current_user.id), request.family_id)
+        await auth_use_case.block_session(str(current_user.id), body.family_id)
     except InvalidCredentialsError as e:
         _auth_domain_to_http(e)
     return Message(message="Session blocked successfully")
 
 
 @router.post("/block/all", status_code=status.HTTP_200_OK)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def block_all_sessions(
+    request: Request,
     auth_use_case: AuthUseCaseDep,
     current_user: CurrentUser,
     response: Response,

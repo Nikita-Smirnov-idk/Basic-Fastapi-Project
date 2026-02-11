@@ -3,6 +3,7 @@ Transport dependencies: session, UoW, use cases, current user.
 Wires infrastructure implementations to application use cases.
 """
 import logging
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Cookie, Depends, Header, HTTPException, Security, status
@@ -20,6 +21,9 @@ from app.core.config.config import settings
 from app.infrastructure.email.email_sender import EmailSender, get_email_sender
 from app.infrastructure.jwt.token_service import TokenService, get_token_service
 from app.domain.entities.db.user import User as DBUser
+from app.infrastructure.persistence.postgres.repositories.yc_directory_repository import (
+    YCDirectoryRepository,
+)
 from app.infrastructure.persistence.postgres.session import get_async_session
 from app.infrastructure.persistence.postgres.unit_of_work import UnitOfWork
 from app.infrastructure.redis.redis_repo import RedisRepository, get_redis_repo
@@ -139,8 +143,17 @@ def get_current_active_superuser(current_user: DBUser = Depends(get_current_user
     return current_user
 
 
-def get_yc_use_case(session: SessionDep) -> YCDirectoryUseCase:
-    return YCDirectoryUseCase(session=session)
+def get_yc_directory_repo(session: SessionDep) -> YCDirectoryRepository:
+    return YCDirectoryRepository(session)
+
+
+def get_yc_use_case(
+    repo: Annotated[YCDirectoryRepository, Depends(get_yc_directory_repo)],
+) -> YCDirectoryUseCase:
+    return YCDirectoryUseCase(
+        repo=repo,
+        auto_sync_interval=timedelta(days=settings.YC_AUTO_SYNC_DAYS),
+    )
 
 YCDirectoryUseCaseDep = Annotated[YCDirectoryUseCase, Depends(get_yc_use_case)]
 UserAgentDep = Annotated[str, Depends(get_user_agent)]

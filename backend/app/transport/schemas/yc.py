@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Literal
 
 from sqlmodel import SQLModel
 
@@ -29,6 +28,8 @@ class YCCompanyPublic(SQLModel):
     nonprofit: bool
     top_company: bool
     tags: list[str]
+    industries: list[str] = []
+    regions: list[str] = []
     founders: list[YCFounderPublic] = []
 
 
@@ -50,8 +51,4 @@ class YCSyncStatePublic(SQLModel):
     last_success_at: datetime | None
     last_error: str | None
     last_item_count: int | None
-
-
-class YCExportFormat(SQLModel):
-    format: Literal["csv"] = "csv"
 

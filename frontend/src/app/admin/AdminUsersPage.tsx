@@ -12,7 +12,7 @@ export function AdminUsersPage() {
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
-  const [balanceInputs, setBalanceInputs] = useState<Record<string, number>>({})
+  const [balanceInputs, setBalanceInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (adminUsersLoadedRef.current) return
@@ -29,7 +29,7 @@ export function AdminUsersPage() {
     e.preventDefault()
     try {
       await createUser({ email, full_name: fullName, password })
-      toast.success("Пользователь создан успешно")
+      toast.success("User created successfully")
       setEmail("")
       setFullName("")
       setPassword("")
@@ -40,24 +40,31 @@ export function AdminUsersPage() {
   }
 
   const handleDelete = async (id: string, userEmail: string) => {
-    if (!confirm(`Удалить пользователя ${userEmail}?`)) return
+    if (!confirm(`Delete user ${userEmail}?`)) return
 
     try {
       await deleteUser(id)
-      toast.success("Пользователь удален")
+      toast.success("User deleted")
       await load()
     } catch (error) {
       console.error("Delete user error:", error)
     }
   }
 
-  const handleBalance = async (id: string, amount: number) => {
+  const handleAddBalance = async (id: string) => {
+    const raw = balanceInputs[id]?.trim() ?? ""
+    const amount = raw === "" ? NaN : Number(raw)
+    if (Number.isNaN(amount) || amount <= 0) {
+      toast.error("Enter a positive number (greater than zero)")
+      return
+    }
     try {
-      await changeBalance(id, amount)
-      toast.success("Баланс изменен")
+      await changeBalance(id, Math.floor(amount))
+      toast.success("Balance updated")
+      setBalanceInputs((prev) => ({ ...prev, [id]: "" }))
       await load()
     } catch (error) {
-      console.error("Change balance error:", error)
+      console.error("Add balance error:", error)
     }
   }
 
@@ -66,8 +73,8 @@ export function AdminUsersPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold">Управление пользователями</h1>
-            <p className="text-muted-foreground mt-1">Создание и редактирование пользователей</p>
+            <h1 className="text-3xl md:text-4xl font-bold">User management</h1>
+            <p className="text-muted-foreground mt-1">Create and manage users</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -75,13 +82,13 @@ export function AdminUsersPage() {
               onClick={() => load()}
               disabled={loading}
             >
-              🔄 Обновить
+              🔄 Refresh
             </button>
             <Link
               to="/"
               className="inline-flex items-center justify-center rounded-lg border bg-background px-4 py-2 text-sm hover:bg-accent transition-colors"
             >
-              ← На главную
+              ← Back to home
             </Link>
           </div>
         </div>
@@ -91,25 +98,25 @@ export function AdminUsersPage() {
             to="/admin"
             className="px-4 py-2 rounded-lg hover:bg-accent text-sm font-medium transition-colors"
           >
-            Дашборд
+            Dashboard
           </Link>
           <Link
             to="/admin/users"
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
           >
-            Пользователи
+            Users
           </Link>
           <Link
             to="/admin/yc-sync"
             className="px-4 py-2 rounded-lg hover:bg-accent text-sm font-medium transition-colors"
           >
-            YC Синхронизация
+            YC Sync
           </Link>
         </div>
 
         <section className="rounded-2xl border bg-card text-card-foreground shadow-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
-            <span>➕</span> Создать пользователя
+            <span>➕</span> Create user
           </h2>
           <form className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end" onSubmit={handleCreate}>
             <div className="space-y-2">
@@ -129,13 +136,13 @@ export function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium" htmlFor="create-name">
-                Полное имя
+                Full name
               </label>
               <input
                 id="create-name"
                 type="text"
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Иван Иванов"
+                placeholder="John Doe"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -144,7 +151,7 @@ export function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium" htmlFor="create-password">
-                Пароль
+                Password
               </label>
               <input
                 id="create-password"
@@ -162,7 +169,7 @@ export function AdminUsersPage() {
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
               disabled={loading}
             >
-              {loading ? "Создаем..." : "Создать"}
+              {loading ? "Creating..." : "Create"}
             </button>
           </form>
         </section>
@@ -170,11 +177,11 @@ export function AdminUsersPage() {
         <section className="rounded-2xl border bg-card text-card-foreground shadow-lg p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold flex items-center gap-2">
-              <span>👥</span> Список пользователей
+              <span>👥</span> User list
             </h2>
             {data && (
               <span className="text-sm text-muted-foreground">
-                Всего: <span className="font-semibold">{data.count}</span>
+                Total: <span className="font-semibold">{data.count}</span>
               </span>
             )}
           </div>
@@ -183,7 +190,7 @@ export function AdminUsersPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center space-y-4">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-muted-foreground">Загружаем пользователей...</p>
+                <p className="text-muted-foreground">Loading users...</p>
               </div>
             </div>
           )}
@@ -196,7 +203,7 @@ export function AdminUsersPage() {
 
           {data && data.data.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Пользователи не найдены</p>
+              <p className="text-muted-foreground">No users found</p>
             </div>
           )}
 
@@ -217,41 +224,43 @@ export function AdminUsersPage() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {user.full_name || "Без имени"}
+                      {user.full_name || "No name"}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>План: {user.plan}</span>
+                      <span>Plan: {user.plan}</span>
                       <span>•</span>
-                      <span>Баланс: {user.balance_cents}¢</span>
+                      <span>Balance: {user.balance_cents}¢</span>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="number"
-                      className="w-32 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Сумма"
-                      value={balanceInputs[user.id] ?? 0}
+                      min={1}
+                      inputMode="numeric"
+                      className="w-32 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="Amount"
+                      value={balanceInputs[user.id] ?? ""}
                       onChange={(e) =>
                         setBalanceInputs({
                           ...balanceInputs,
-                          [user.id]: Number(e.target.value),
+                          [user.id]: e.target.value,
                         })
                       }
                     />
                     <button
                       className="inline-flex items-center justify-center rounded-lg border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50"
-                      onClick={() => handleBalance(user.id, balanceInputs[user.id] ?? 0)}
+                      onClick={() => handleAddBalance(user.id)}
                       disabled={loading}
                     >
-                      💰 Изменить
+                      Add
                     </button>
                     <button
                       className="inline-flex items-center justify-center rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
                       onClick={() => handleDelete(user.id, user.email)}
                       disabled={loading}
                     >
-                      🗑️ Удалить
+                      🗑️ Delete
                     </button>
                   </div>
                 </article>

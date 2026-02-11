@@ -8,20 +8,21 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as YcRouteImport } from './routes/yc'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as UsersMeRouteImport } from './routes/users.me'
-import { Route as AuthSignupRouteImport } from './routes/auth.signup'
-import { Route as AuthSessionsRouteImport } from './routes/auth.sessions'
-import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
-import { Route as AuthRecoverPasswordRouteImport } from './routes/auth.recover-password'
-import { Route as AuthLoginRouteImport } from './routes/auth.login'
-import { Route as AuthCompleteSignupRouteImport } from './routes/auth.complete-signup'
-import { Route as AdminYcSyncRouteImport } from './routes/admin.yc-sync'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as rootRouteImport } from './app/routes/__root'
+import { Route as YcRouteImport } from './app/routes/yc'
+import { Route as HealthRouteImport } from './app/routes/health'
+import { Route as AdminRouteImport } from './app/routes/admin'
+import { Route as IndexRouteImport } from './app/routes/index'
+import { Route as UsersMeRouteImport } from './app/routes/users.me'
+import { Route as AuthSignupRouteImport } from './app/routes/auth.signup'
+import { Route as AuthSessionsRouteImport } from './app/routes/auth.sessions'
+import { Route as AuthResetPasswordRouteImport } from './app/routes/auth.reset-password'
+import { Route as AuthRecoverPasswordRouteImport } from './app/routes/auth.recover-password'
+import { Route as AuthLoginRouteImport } from './app/routes/auth.login'
+import { Route as AuthCompleteSignupRouteImport } from './app/routes/auth.complete-signup'
+import { Route as AdminIndexRouteImport } from './app/routes/admin.index'
+import { Route as AdminYcSyncRouteImport } from './app/routes/admin.yc-sync'
+import { Route as AdminUsersRouteImport } from './app/routes/admin.users'
 
 const YcRoute = YcRouteImport.update({
   id: '/yc',
@@ -78,6 +79,11 @@ const AuthCompleteSignupRoute = AuthCompleteSignupRouteImport.update({
   path: '/auth/complete-signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminYcSyncRoute = AdminYcSyncRouteImport.update({
   id: '/yc-sync',
   path: '/yc-sync',
@@ -123,6 +129,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/health': typeof HealthRoute
   '/yc': typeof YcRoute
   '/admin/users': typeof AdminUsersRoute
@@ -220,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/': {
       id: '/'
       path: '/'
@@ -294,11 +308,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminYcSyncRoute: typeof AdminYcSyncRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminYcSyncRoute: AdminYcSyncRoute,
 }

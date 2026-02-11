@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 
 import type { HealthStatus } from "@/domain/utils/types/utils"
-import { getHealthStatus } from "@/application/utilsService"
+import { getHealthStatus } from "@/use_cases/utilsService"
 
 export function useHealth() {
   const [status, setStatus] = useState<HealthStatus | null>(null)

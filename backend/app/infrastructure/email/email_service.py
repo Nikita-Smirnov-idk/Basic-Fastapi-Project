@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import emails  # type: ignore
 from jinja2 import Template
@@ -134,7 +135,7 @@ class EmailService:
         """Генерирует email для подтверждения регистрации"""
         project_name = self.project_name
         subject = f"{project_name} - Подтвердите регистрацию"
-        link = f"{self.frontend_host}/auth/complete-signup?token={token}"
+        link = f"{self.frontend_host}/auth/complete-signup?token={quote(token)}&email={quote(email)}"
         html_content = self.render_email_template(
             template_name="signup_confirmation.html",
             context={

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.domain.exceptions import InvalidCredentialsError
+from app.transport.http.rate_limit import limiter, PER_ROUTE_LIMIT
 from app.transport.http.routes.users.passwords.deps import PasswordUseCaseDep
 from app.transport.schemas import Message, NewPassword
 
@@ -8,16 +9,22 @@ router = APIRouter(prefix="/passwords", tags=["passwords"])
 
 
 @router.post("/recovery/{email}")
+@limiter.limit(PER_ROUTE_LIMIT)
 async def recover_password(
-    password_use_case: PasswordUseCaseDep, email: str
+    request: Request,
+    password_use_case: PasswordUseCaseDep,
+    email: str,
 ) -> Message:
     await password_use_case.recover_password(email)
     return Message(message="If this email exists, you will receive a password reset link")
 
 
 @router.post("/reset/")
+@limiter.limit(PER_ROUTE_LIMIT)
 async def reset_password(
-    password_use_case: PasswordUseCaseDep, body: NewPassword
+    request: Request,
+    password_use_case: PasswordUseCaseDep,
+    body: NewPassword,
 ) -> Message:
     try:
         await password_use_case.reset_password(

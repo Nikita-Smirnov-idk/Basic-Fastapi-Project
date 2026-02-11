@@ -8,7 +8,7 @@ import {
   getDashboardStats,
   listAdminUsers,
   updateUserBalance,
-} from "@/application/adminService"
+} from "@/use_cases/adminService"
 import type { AdminDashboardStats, Message, UsersPublic } from "@/infrastructure/adminApi"
 
 export function useAdminUsers() {

@@ -1,33 +1,18 @@
-import { useEffect, useState } from "react"
-
-import type { User } from "@/domain/user/types/user"
+import { useCallback } from "react"
 import type { AuthMessage } from "@/domain/auth/types/auth"
-import { deleteMe, getMe } from "@/application/userService"
+import { deleteMe } from "@/use_cases/userService"
+import { useUserStore } from "@/pkg/stores/userStore"
 
 export function useCurrentUser() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const me = await getMe()
-        setUser(me)
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [])
+  const { user, loading, error, fetchUser, clear } = useUserStore()
+  const refetch = useCallback(() => void fetchUser(true), [fetchUser])
 
   const deleteAccount = async (): Promise<AuthMessage> => {
     const result = await deleteMe()
-    setUser(null)
+    clear()
     return result
   }
 
-  return { user, loading, error, deleteAccount }
+  return { user, loading, error, refetch, deleteAccount }
 }
 

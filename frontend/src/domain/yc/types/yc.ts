@@ -23,6 +23,8 @@ export interface YCCompany {
   nonprofit: boolean
   top_company: boolean
   tags: string[]
+  industries?: string[]
+  regions?: string[]
   founders: YCFounder[]
 }
 

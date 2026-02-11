@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 
 import type { HomePageData } from "@/domain/home/types/home"
-import { getHomePageData } from "@/application/homeService"
+import { getHomePageData } from "@/use_cases/homeService"
 
 interface UseHomeState {
   data: HomePageData | null

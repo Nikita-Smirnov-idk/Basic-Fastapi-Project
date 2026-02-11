@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.infrastructure.persistence.postgres.repositories.admin_stats_repository import (
+    AdminStatsRepository,
+)
 from app.infrastructure.persistence.postgres.repositories.user_repository import (
     UserRepository,
 )
+from app.use_cases.ports.admin_stats_repository import IAdminStatsRepository
 from app.use_cases.ports.unit_of_work import IUnitOfWork
 from app.use_cases.ports.user_repository import IUserRepository
 
@@ -17,6 +21,7 @@ class UnitOfWork(IUnitOfWork):
     def __init__(self, session: "AsyncSession") -> None:
         self._session = session
         self.users: IUserRepository = UserRepository(session)
+        self.admin_stats: IAdminStatsRepository = AdminStatsRepository(session)
 
     async def __aenter__(self) -> UnitOfWork:
         return self

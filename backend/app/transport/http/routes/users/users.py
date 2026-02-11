@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.config.config import settings
 from app.domain.exceptions import UserNotFoundError
 from app.transport.http.deps import CurrentUser
+from app.transport.http.rate_limit import limiter, PER_ROUTE_LIMIT
 from app.transport.http.routes.users.auth import auth
 from app.transport.http.routes.users.deps import UserUseCaseDep
 from app.transport.http.routes.users.google_auth import google_auth
@@ -18,7 +19,8 @@ if settings.GOOGLE_CLIENT_ID is not None and settings.GOOGLE_CLIENT_SECRET is no
 
 
 @router.get("/me", response_model=UserPublic)
-async def read_user_me(current_user: CurrentUser, user_use_case: UserUseCaseDep):
+@limiter.limit(PER_ROUTE_LIMIT)
+async def read_user_me(request: Request, current_user: CurrentUser, user_use_case: UserUseCaseDep):
     try:
         domain_user = await user_use_case.get_me(current_user.id)
     except UserNotFoundError as e:
@@ -27,7 +29,8 @@ async def read_user_me(current_user: CurrentUser, user_use_case: UserUseCaseDep)
 
 
 @router.delete("/me", response_model=Message)
-async def delete_user_me(current_user: CurrentUser, user_use_case: UserUseCaseDep):
+@limiter.limit(PER_ROUTE_LIMIT)
+async def delete_user_me(request: Request, current_user: CurrentUser, user_use_case: UserUseCaseDep):
     if current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

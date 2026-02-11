@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # YC directory auto‑sync interval in days
     YC_AUTO_SYNC_DAYS: int = 5
 
+    RATE_LIMIT_PER_ROUTE: str = "3/second"
+    RATE_LIMIT_GLOBAL: str = "10/second"
+    RATE_LIMIT_COOLDOWN_SECONDS: int = 30
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def IS_PROD(self) -> bool:

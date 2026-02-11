@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react"
 
 import type { AuthMessage, SessionsList } from "@/domain/auth/types/auth"
-import { getSessions, loginUser, logoutUser } from "@/application/authService"
+import { getSessions, loginUser, logoutUser } from "@/use_cases/authService"
 
 export function useLogin() {
   const [loading, setLoading] = useState(false)

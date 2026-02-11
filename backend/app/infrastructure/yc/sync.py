@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from html.parser import HTMLParser
 from typing import Any
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.db.yc_company import YCCompany
@@ -14,6 +16,7 @@ from app.domain.entities.db.yc_sync_state import YCSyncState
 
 
 YC_ALL_URL = "https://yc-oss.github.io/api/companies/all.json"
+BATCH_SIZE = 500
 
 
 class FoundersHTMLParser(HTMLParser):
@@ -150,53 +153,60 @@ async def sync_yc_directory(session: AsyncSession) -> int:
         await session.commit()
         raise
 
-    # Truncate existing data before re‑import
     await session.execute(YCFounder.__table__.delete())  # type: ignore[arg-type]
-    await session.execute(YCCompany.__table__.delete())  # type: ignore[arg-type]
 
-    companies: list[YCCompany] = []
+    now = datetime.utcnow()
+    rows: list[dict[str, Any]] = []
     for raw in data:
-        company = YCCompany(
-            yc_id=raw["id"],
-            name=raw["name"],
-            slug=raw["slug"],
-            batch=raw.get("batch") or "",
-            batch_code=_batch_code(raw.get("batch")),
-            year=_batch_year(raw.get("batch")),
-            status=raw.get("status") or "",
-            industry=raw.get("industry"),
-            subindustry=raw.get("subindustry"),
-            website=raw.get("website"),
-            all_locations=raw.get("all_locations"),
-            one_liner=raw.get("one_liner"),
-            long_description=raw.get("long_description"),
-            team_size=raw.get("team_size"),
-            small_logo_thumb_url=raw.get("small_logo_thumb_url"),
-            url=raw.get("url") or "",
-            is_hiring=bool(raw.get("isHiring")),
-            nonprofit=bool(raw.get("nonprofit")),
-            top_company=bool(raw.get("top_company")),
-            industries=list(raw.get("industries") or []),
-            regions=list(raw.get("regions") or []),
-            tags=list(raw.get("tags") or []),
-            launched_at=raw.get("launched_at"),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        companies.append(company)
+        rows.append({
+            "id": uuid.uuid4(),
+            "yc_id": raw["id"],
+            "name": raw["name"],
+            "slug": raw["slug"],
+            "batch": raw.get("batch") or "",
+            "batch_code": _batch_code(raw.get("batch")),
+            "year": _batch_year(raw.get("batch")),
+            "status": raw.get("status") or "",
+            "industry": raw.get("industry"),
+            "subindustry": raw.get("subindustry"),
+            "website": raw.get("website"),
+            "all_locations": raw.get("all_locations"),
+            "one_liner": raw.get("one_liner"),
+            "long_description": raw.get("long_description"),
+            "team_size": raw.get("team_size"),
+            "small_logo_thumb_url": raw.get("small_logo_thumb_url"),
+            "url": raw.get("url") or "",
+            "is_hiring": bool(raw.get("isHiring")),
+            "nonprofit": bool(raw.get("nonprofit")),
+            "top_company": bool(raw.get("top_company")),
+            "industries": list(raw.get("industries") or []),
+            "regions": list(raw.get("regions") or []),
+            "tags": list(raw.get("tags") or []),
+            "launched_at": raw.get("launched_at"),
+            "created_at": now,
+            "updated_at": now,
+        })
 
-    session.add_all(companies)
+    table = YCCompany.__table__
+    for i in range(0, len(rows), BATCH_SIZE):
+        batch = rows[i : i + BATCH_SIZE]
+        batch_stmt = pg_insert(YCCompany).values(batch)
+        batch_stmt = batch_stmt.on_conflict_do_update(
+            index_elements=["yc_id"],
+            set_={table.c[n]: batch_stmt.excluded[n] for n in table.c.keys() if n not in ("id", "created_at", "yc_id")},
+        )
+        await session.execute(batch_stmt)
     await session.commit()
 
     founder_count = await _sync_founders(session)
 
     sync_state.last_finished_at = datetime.utcnow()
     sync_state.last_success_at = sync_state.last_finished_at
-    sync_state.last_item_count = len(companies)
+    sync_state.last_item_count = len(rows)
     session.add(sync_state)
     await session.commit()
 
-    return len(companies)
+    return len(rows)
 
 
 async def _sync_founders(session: AsyncSession) -> int:

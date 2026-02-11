@@ -16,13 +16,13 @@ export function HealthPage() {
         {loading && (
           <div className="space-y-4">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground">Проверяем статус...</p>
+            <p className="text-muted-foreground">Checking status...</p>
           </div>
         )}
 
         {error && (
           <div className="rounded-lg border bg-destructive/10 border-destructive/20 p-4">
-            <p className="text-destructive">Ошибка: {error}</p>
+            <p className="text-destructive">Error: {error}</p>
           </div>
         )}
 
@@ -44,7 +44,7 @@ export function HealthPage() {
                 status.ok ? "text-green-600 dark:text-green-400" : "text-destructive"
               }`}
             >
-              {status.ok ? "Backend работает" : "Backend недоступен"}
+              {status.ok ? "Backend is up" : "Backend unavailable"}
             </p>
           </div>
         )}
@@ -53,7 +53,7 @@ export function HealthPage() {
           to="/"
           className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-md"
         >
-          На главную
+          Back to home
         </Link>
       </section>
     </main>

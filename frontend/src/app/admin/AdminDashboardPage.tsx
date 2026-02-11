@@ -23,14 +23,14 @@ export function AdminDashboardPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold">Админ-панель</h1>
-            <p className="text-muted-foreground mt-1">Обзор системы</p>
+            <h1 className="text-3xl md:text-4xl font-bold">Admin panel</h1>
+            <p className="text-muted-foreground mt-1">System overview</p>
           </div>
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-lg border bg-background px-4 py-2 text-sm hover:bg-accent transition-colors"
           >
-            ← На главную
+            ← Back to home
           </Link>
         </div>
 
@@ -39,19 +39,19 @@ export function AdminDashboardPage() {
             to="/admin"
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
           >
-            Дашборд
+            Dashboard
           </Link>
           <Link
             to="/admin/users"
             className="px-4 py-2 rounded-lg hover:bg-accent text-sm font-medium transition-colors"
           >
-            Пользователи
+            Users
           </Link>
           <Link
             to="/admin/yc-sync"
             className="px-4 py-2 rounded-lg hover:bg-accent text-sm font-medium transition-colors"
           >
-            YC Синхронизация
+            YC Sync
           </Link>
         </div>
 
@@ -59,7 +59,7 @@ export function AdminDashboardPage() {
           <div className="flex items-center justify-center py-20">
             <div className="text-center space-y-4">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-muted-foreground">Загружаем данные...</p>
+              <p className="text-muted-foreground">Loading...</p>
             </div>
           </div>
         )}
@@ -69,7 +69,7 @@ export function AdminDashboardPage() {
             <div className="w-12 h-12 rounded-full bg-destructive/20 flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">⚠️</span>
             </div>
-            <h3 className="font-semibold mb-2">Ошибка загрузки</h3>
+            <h3 className="font-semibold mb-2">Load error</h3>
             <p className="text-sm text-muted-foreground">{error}</p>
           </div>
         )}
@@ -78,31 +78,31 @@ export function AdminDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               icon="👥"
-              label="Всего пользователей"
+              label="Total users"
               value={data.total_users}
               color="blue"
             />
             <StatCard
               icon="💳"
-              label="Платящих пользователей"
+              label="Paying users"
               value={data.paying_users}
               color="green"
             />
             <StatCard
               icon="💰"
-              label="Баланс (центы)"
+              label="Balance (cents)"
               value={data.total_balance_cents.toLocaleString()}
               color="yellow"
             />
             <StatCard
               icon="🏢"
-              label="YC компании"
+              label="YC companies"
               value={data.yc_companies_count}
               color="purple"
             />
             <StatCard
               icon="👔"
-              label="YC основатели"
+              label="YC founders"
               value={data.yc_founders_count}
               color="pink"
             />

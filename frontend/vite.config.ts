@@ -6,10 +6,20 @@ import { defineConfig } from "vite"
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    host: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  plugins: [TanStackRouterVite(), react(), tailwindcss()],
+  plugins: [
+    TanStackRouterVite({
+      routesDirectory: "./src/app",
+      generatedRouteTree: "./src/routeTree.gen.ts",
+    }),
+    react(),
+    tailwindcss(),
+  ],
 })

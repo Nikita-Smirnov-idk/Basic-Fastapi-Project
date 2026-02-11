@@ -5,37 +5,66 @@ import type {
   YCSearchMeta,
   YCSyncState,
 } from "@/domain/yc/types/yc"
+import type { YCCompanyFilters } from "@/infrastructure/ycApi"
 import {
-  getExportUrl,
   getMeta,
   getSyncState,
   listCompanies,
   triggerSync,
-} from "@/application/ycService"
+} from "@/use_cases/ycService"
 
-export function useYCCompanies() {
+const FREE_PAGE_SIZE = 15
+const PAID_PAGE_SIZE = 50
+
+export function useYCCompanies(
+  filters: YCCompanyFilters = {},
+  page: number = 1,
+) {
   const [companies, setCompanies] = useState<YCCompanies | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  const skip = (page - 1) * PAID_PAGE_SIZE
+
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await listCompanies()
+      const data = await listCompanies({ ...filters, skip })
       setCompanies(data)
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [skip, filters.q, filters.batch, filters.year, filters.status_filter, filters.industry, filters.is_hiring, filters.nonprofit, filters.top_company])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
-  return { companies, loading, error, reload: load }
+  const isPaid = companies !== null && companies.data.length !== FREE_PAGE_SIZE
+  const pageSize = isPaid ? PAID_PAGE_SIZE : FREE_PAGE_SIZE
+  const totalPages = companies
+    ? isPaid
+      ? Math.max(1, Math.ceil(companies.count / pageSize))
+      : 1
+    : 1
+  const canNext = page < totalPages
+  const canPrev = page > 1
+
+  return {
+    companies,
+    loading,
+    error,
+    reload: load,
+    pageSize,
+    totalPages,
+    page,
+    canNext,
+    canPrev,
+    isPaid,
+  }
 }
 
 export function useYCMeta() {
@@ -96,8 +125,6 @@ export function useYCSync() {
     }
   }
 
-  const exportUrl = getExportUrl()
-
-  return { syncState, loading, error, message, syncNow, exportUrl, reload: loadState }
+  return { syncState, loading, error, message, syncNow, reload: loadState }
 }
 

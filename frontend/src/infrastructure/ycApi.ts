@@ -21,10 +21,11 @@ export interface YCCompanyFilters {
 export async function listYCCompanies(
   filters: YCCompanyFilters = {},
 ): Promise<YCCompanies> {
+  const { limit: _omit, ...query } = filters
   return httpRequest<YCCompanies>({
     path: "/yc/companies",
     method: "GET",
-    query: filters as Record<string, string | number | boolean | undefined>,
+    query: query as Record<string, string | number | boolean | undefined>,
   })
 }
 
@@ -37,23 +38,15 @@ export async function getYCMeta(): Promise<YCSearchMeta> {
 
 export async function getYCSyncState(): Promise<YCSyncState> {
   return httpRequest<YCSyncState>({
-    path: "/yc/sync-state",
+    path: "/admin/sync-state",
     method: "GET",
   })
 }
 
 export async function syncYCNow(): Promise<{ message: string }> {
   return httpRequest<{ message: string }>({
-    path: "/yc/sync",
+    path: "/admin/sync",
     method: "POST",
   })
-}
-
-export function getYCExportUrl(): string {
-  const base =
-    import.meta.env.VITE_API_URL ??
-    (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000")
-  const url = new URL("/api/v1/yc/export", base)
-  return url.toString()
 }
 

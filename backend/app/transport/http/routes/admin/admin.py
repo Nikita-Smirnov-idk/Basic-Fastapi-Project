@@ -1,39 +1,37 @@
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.domain.exceptions import (
-    AdminCannotDeleteSelfError,
+    AdminCannotBeDeletedError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
 from app.transport.http.deps import AdminUseCaseDep
-from sqlalchemy.exc import IntegrityError
-from sqlmodel import func, select
-
-from app.domain.entities.db.user import User
-from app.infrastructure.passwords.utils import get_password_hash
-from app.transport.http.deps import SessionDep, CurrentUser
+from app.transport.http.rate_limit import limiter, PER_ROUTE_LIMIT
 from app.transport.http.routes.admin.deps import AdminDep
-from app.transport.schemas import Message, UserPublic, UsersPublic
+from app.transport.schemas import (
+    Message,
+    UserPublic,
+    UsersPublic,
+    PrivateUserCreate,
+    AdminDashboardStats,
+    BalanceUpdate,
+    YCSyncStatePublic,
+)
+from app.transport.http.routes.yc.deps import YCDirectoryUseCaseDep
 
 router = APIRouter(tags=["admin"], prefix="/admin")
 
 
-class PrivateUserCreate(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    is_verified: bool = False
-    plan: str = "free"
-    balance_cents: int = 0
-
-
 @router.post("/", response_model=UserPublic)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def create_user(
-    user_in: PrivateUserCreate, admin: AdminDep, admin_use_case: AdminUseCaseDep
+    request: Request,
+    user_in: PrivateUserCreate,
+    admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
 ) -> Any:
     """Create a new user."""
     try:
@@ -52,8 +50,13 @@ async def create_user(
 
 
 @router.get("/", response_model=UsersPublic)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def read_users(
-    admin: AdminDep, admin_use_case: AdminUseCaseDep, skip: int = 0, limit: int = 100
+    request: Request,
+    admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
+    skip: int = 0,
+    limit: int = 100,
 ) -> Any:
     """Retrieve users."""
     users_list, count = await admin_use_case.get_users(skip=skip, limit=limit)
@@ -63,9 +66,30 @@ async def read_users(
     )
 
 
+@router.get("/dashboard", response_model=AdminDashboardStats)
+@limiter.limit(PER_ROUTE_LIMIT)
+async def admin_dashboard(
+    request: Request,
+    admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
+) -> AdminDashboardStats:
+    stats = await admin_use_case.get_dashboard_stats()
+    return AdminDashboardStats(
+        total_users=stats.total_users,
+        paying_users=stats.paying_users,
+        total_balance_cents=stats.total_balance_cents,
+        yc_companies_count=stats.yc_companies_count,
+        yc_founders_count=stats.yc_founders_count,
+    )
+
+
 @router.get("/{user_id}", response_model=UserPublic)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def read_user_by_id(
-    user_id: uuid.UUID, admin: AdminDep, admin_use_case: AdminUseCaseDep
+    request: Request,
+    user_id: uuid.UUID,
+    admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
 ) -> Any:
     """Get a specific user by id."""
     try:
@@ -76,15 +100,19 @@ async def read_user_by_id(
 
 
 @router.delete("/{user_id}")
+@limiter.limit(PER_ROUTE_LIMIT)
 async def delete_user(
-    admin: AdminDep, admin_use_case: AdminUseCaseDep, user_id: uuid.UUID
+    request: Request,
+    admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
+    user_id: uuid.UUID,
 ) -> Message:
     """Delete a user."""
     try:
         await admin_use_case.delete_user(admin_id=admin.id, user_id=user_id)
     except UserNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except AdminCannotDeleteSelfError as e:
+    except AdminCannotBeDeletedError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
@@ -92,66 +120,59 @@ async def delete_user(
     return Message(message="User deleted successfully")
 
 
-class BalanceUpdate(BaseModel):
-    amount_cents: int
-
-
 @router.post("/{user_id}/balance", response_model=UserPublic)
+@limiter.limit(PER_ROUTE_LIMIT)
 async def update_user_balance(
+    request: Request,
     user_id: uuid.UUID,
     body: BalanceUpdate,
-    session: SessionDep,
     admin: AdminDep,
+    admin_use_case: AdminUseCaseDep,
 ) -> Any:
-    user = await session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    user.balance_cents = max(0, user.balance_cents + body.amount_cents)
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
+    try:
+        user = await admin_use_case.update_user_balance(
+            admin_id=admin.id,
+            user_id=user_id,
+            amount_cents=body.amount_cents,
+        )
+    except UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return UserPublic.model_validate(user)
 
 
-class AdminDashboardStats(BaseModel):
-    total_users: int
-    paying_users: int
-    total_balance_cents: int
-    yc_companies_count: int
-    yc_founders_count: int
 
 
-@router.get("/dashboard", response_model=AdminDashboardStats)
-async def admin_dashboard(
-    session: SessionDep,
+@router.post("/sync", response_model=Message)
+@limiter.limit(PER_ROUTE_LIMIT)
+async def sync_now(
+    request: Request,
     admin: AdminDep,
-) -> AdminDashboardStats:
-    users_count = await session.execute(select(func.count()).select_from(User))
-    total_users = int(users_count.scalar_one())
+    yc_uc: YCDirectoryUseCaseDep,
+) -> Message:
+    count = await yc_uc.sync_from_source()
+    return Message(message=f"Synced {count} YC companies")
 
-    paying_stmt = select(func.count()).select_from(User).where(User.plan != "free")
-    paying_result = await session.execute(paying_stmt)
-    paying_users = int(paying_result.scalar_one())
 
-    balance_stmt = select(func.coalesce(func.sum(User.balance_cents), 0))
-    balance_result = await session.execute(balance_stmt)
-    total_balance_cents = int(balance_result.scalar_one() or 0)
-
-    from app.domain.entities.db.yc_company import YCCompany  # local import to avoid cycle
-    from app.domain.entities.db.yc_founder import YCFounder  # local import to avoid cycle
-
-    yc_stmt = select(func.count()).select_from(YCCompany)
-    yc_result = await session.execute(yc_stmt)
-    yc_companies_count = int(yc_result.scalar_one())
-
-    ycf_stmt = select(func.count()).select_from(YCFounder)
-    ycf_result = await session.execute(ycf_stmt)
-    yc_founders_count = int(ycf_result.scalar_one())
-
-    return AdminDashboardStats(
-        total_users=total_users,
-        paying_users=paying_users,
-        total_balance_cents=total_balance_cents,
-        yc_companies_count=yc_companies_count,
-        yc_founders_count=yc_founders_count,
+@router.get("/sync-state", response_model=YCSyncStatePublic)
+@limiter.limit(PER_ROUTE_LIMIT)
+async def get_sync_state(
+    request: Request,
+    admin: AdminDep,
+    yc_uc: YCDirectoryUseCaseDep,
+) -> YCSyncStatePublic:
+    state = await yc_uc.get_sync_state()
+    if not state:
+        return YCSyncStatePublic(
+            last_started_at=None,
+            last_finished_at=None,
+            last_success_at=None,
+            last_error=None,
+            last_item_count=None,
+        )
+    return YCSyncStatePublic(
+        last_started_at=state.last_started_at,
+        last_finished_at=state.last_finished_at,
+        last_success_at=state.last_success_at,
+        last_error=state.last_error,
+        last_item_count=state.last_item_count,
     )

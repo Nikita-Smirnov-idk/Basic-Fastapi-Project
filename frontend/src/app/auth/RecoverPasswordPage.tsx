@@ -12,7 +12,7 @@ export function RecoverPasswordPage() {
     e.preventDefault()
     try {
       const result = await recover(email)
-      toast.success(result.message || "Письмо отправлено")
+      toast.success(result.message || "Email sent")
       setSuccess(true)
     } catch (error) {
       console.error("Password recovery error:", error)
@@ -27,9 +27,9 @@ export function RecoverPasswordPage() {
             <span className="text-4xl">✉️</span>
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Проверьте вашу почту</h1>
+            <h1 className="text-2xl font-bold">Check your email</h1>
             <p className="text-muted-foreground">
-              На адрес <span className="font-medium text-foreground">{email}</span> отправлено письмо со ссылкой для восстановления пароля.
+              We sent a password reset link to <span className="font-medium text-foreground">{email}</span>.
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -37,13 +37,13 @@ export function RecoverPasswordPage() {
               to="/auth/login"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-md"
             >
-              Вернуться к входу
+              Back to sign in
             </Link>
             <Link
               to="/"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              ← На главную
+              ← Back to home
             </Link>
           </div>
         </section>
@@ -58,9 +58,9 @@ export function RecoverPasswordPage() {
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
             <span className="text-3xl">🔐</span>
           </div>
-          <h1 className="text-3xl font-bold">Восстановление пароля</h1>
+          <h1 className="text-3xl font-bold">Recover password</h1>
           <p className="text-muted-foreground">
-            Введите ваш email для получения ссылки восстановления
+            Enter your email to receive a reset link
           </p>
         </div>
 
@@ -89,10 +89,10 @@ export function RecoverPasswordPage() {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                Отправляем...
+                Sending...
               </>
             ) : (
-              "Отправить письмо"
+              "Send email"
             )}
           </button>
         </form>
@@ -102,13 +102,13 @@ export function RecoverPasswordPage() {
             to="/auth/login"
             className="text-primary hover:text-primary/80 font-medium transition-colors block"
           >
-            ← Вернуться к входу
+            ← Back to sign in
           </Link>
           <Link
             to="/"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors block"
           >
-            На главную
+            Back to home
           </Link>
         </div>
       </section>

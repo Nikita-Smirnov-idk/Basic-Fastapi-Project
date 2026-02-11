@@ -15,5 +15,7 @@ class User(BaseModel):
     full_name: str | None = None
     hashed_password: str | None = None
     google_id: str | None = None
+    plan: str = "free"
+    balance_cents: int = 0
 
     model_config = {"from_attributes": True}

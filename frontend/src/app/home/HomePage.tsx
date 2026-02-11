@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { Skeleton } from "@/pkg/components"
 import { useHome } from "@/delivery"
 
 export function HomePage() {
@@ -6,11 +7,20 @@ export function HomePage() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">Загружаем...</p>
-        </div>
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 px-4 py-12">
+        <section className="max-w-3xl w-full">
+          <div className="rounded-2xl border bg-card p-8 md:p-12 space-y-8">
+            <header className="space-y-4 text-center">
+              <Skeleton className="h-12 w-64 mx-auto" />
+              <Skeleton className="h-6 w-full max-w-2xl mx-auto" />
+            </header>
+            <Skeleton className="h-32 w-full rounded-lg" />
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Skeleton className="h-12 w-32 rounded-lg" />
+              <Skeleton className="h-12 w-48 rounded-lg" />
+            </div>
+          </div>
+        </section>
       </main>
     )
   }
@@ -23,9 +33,9 @@ export function HomePage() {
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
               <span className="text-3xl">⚠️</span>
             </div>
-            <h2 className="text-xl font-semibold">Ошибка загрузки</h2>
+            <h2 className="text-xl font-semibold">Load error</h2>
             <p className="text-muted-foreground">
-              Не удалось загрузить данные главной страницы
+              Failed to load home page data
             </p>
           </div>
         </div>
@@ -57,13 +67,13 @@ export function HomePage() {
               to="/auth/login"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-md hover:shadow-lg"
             >
-              Войти
+              Sign in
             </Link>
             <Link
               to="/auth/signup"
               className="inline-flex items-center justify-center rounded-lg border-2 border-primary bg-background px-6 py-3 text-sm font-medium text-foreground hover:bg-primary/10 transition-colors"
             >
-              Зарегистрироваться
+              Sign up
             </Link>
           </div>
 
@@ -72,28 +82,28 @@ export function HomePage() {
               to="/auth/recover-password"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
             >
-              Забыли пароль?
+              Forgot password?
             </Link>
             <span className="text-xs text-muted-foreground">•</span>
             <Link
               to="/auth/sessions"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
             >
-              Мои сессии
+              My sessions
             </Link>
             <span className="text-xs text-muted-foreground">•</span>
             <Link
               to="/users/me"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
             >
-              Профиль
+              Profile
             </Link>
             <span className="text-xs text-muted-foreground">•</span>
             <Link
               to="/yc"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
             >
-              YC компании
+              YC companies
             </Link>
           </div>
         </div>

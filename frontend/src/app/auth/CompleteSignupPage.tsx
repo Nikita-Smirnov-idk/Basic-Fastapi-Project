@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
-import { completeSignupFlow } from "@/application/authService"
+import { completeSignupFlow } from "@/use_cases/authService"
 
 function useQueryParam(name: string): string | null {
   if (typeof window === "undefined") return null
@@ -12,6 +12,7 @@ function useQueryParam(name: string): string | null {
 export function CompleteSignupPage() {
   const navigate = useNavigate()
   const token = useQueryParam("token")
+  const email = useQueryParam("email")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -23,7 +24,7 @@ export function CompleteSignupPage() {
     setLoading(true)
     try {
       await completeSignupFlow(token, password)
-      toast.success("Регистрация завершена! Теперь можете войти.")
+      toast.success("Signup complete! You can sign in now.")
       navigate({ to: "/auth/login" })
     } catch (error) {
       console.error("Complete signup error:", error)
@@ -40,16 +41,16 @@ export function CompleteSignupPage() {
             <span className="text-3xl">⚠️</span>
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Недействительная ссылка</h1>
+            <h1 className="text-2xl font-bold">Invalid link</h1>
             <p className="text-muted-foreground">
-              Токен не указан. Пожалуйста, перейдите по ссылке из письма ещё раз.
+              Token is missing. Please use the link from your email again.
             </p>
           </div>
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-md"
           >
-            На главную
+            Back to home
           </Link>
         </section>
       </main>
@@ -63,16 +64,32 @@ export function CompleteSignupPage() {
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
             <span className="text-3xl">✅</span>
           </div>
-          <h1 className="text-3xl font-bold">Завершение регистрации</h1>
+          <h1 className="text-3xl font-bold">Complete signup</h1>
           <p className="text-muted-foreground">
-            Последний шаг — создайте пароль для вашего аккаунта
+            Last step — set a password for your account
           </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {email && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                readOnly
+                value={email}
+                className="w-full rounded-lg border border-input bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground cursor-not-allowed"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <label className="block text-sm font-medium" htmlFor="password">
-              Новый пароль
+              New password
             </label>
             <input
               id="password"
@@ -86,7 +103,7 @@ export function CompleteSignupPage() {
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Минимум 6 символов
+              At least 6 characters
             </p>
           </div>
 
@@ -98,10 +115,10 @@ export function CompleteSignupPage() {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                Завершаем...
+                Completing...
               </>
             ) : (
-              "Завершить регистрацию"
+              "Complete signup"
             )}
           </button>
         </form>
@@ -111,7 +128,7 @@ export function CompleteSignupPage() {
             to="/"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← На главную
+            ← Back to home
           </Link>
         </div>
       </section>

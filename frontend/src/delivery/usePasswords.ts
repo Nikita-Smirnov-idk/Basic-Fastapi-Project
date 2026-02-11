@@ -4,7 +4,7 @@ import type { AuthMessage } from "@/domain/auth/types/auth"
 import {
   requestPasswordRecovery,
   submitPasswordReset,
-} from "@/application/passwordsService"
+} from "@/use_cases/passwordsService"
 
 export function usePasswordRecovery() {
   const [loading, setLoading] = useState(false)

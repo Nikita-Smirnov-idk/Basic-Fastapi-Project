@@ -21,6 +21,16 @@ export async function login(email: string, password: string): Promise<AuthMessag
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      let detail = "Incorrect username or password"
+      try {
+        const body = await response.json() as { detail?: string }
+        if (body.detail && typeof body.detail === "string") detail = body.detail
+      } catch {
+        // ignore
+      }
+      throw new Error(detail)
+    }
     throw new Error(`HTTP error ${response.status}`)
   }
 
@@ -31,6 +41,7 @@ export async function logout(): Promise<AuthMessage> {
   return httpRequest<AuthMessage>({
     path: "/users/auth/logout",
     method: "POST",
+    skipTokenRefresh: true,
   })
 }
 

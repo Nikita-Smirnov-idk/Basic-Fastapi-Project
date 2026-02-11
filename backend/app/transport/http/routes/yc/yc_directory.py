@@ -1,11 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 
 from app.domain.entities.db.user import User
-from app.domain.entities.db.yc_company import YCCompany
-from app.domain.entities.db.yc_founder import YCFounder
 from app.transport.http.deps import CurrentUser, SessionDep
+from app.transport.http.rate_limit import limiter
 from app.transport.schemas import (
     YCFounderPublic,
     YCCompanyPublic,
@@ -14,23 +11,25 @@ from app.transport.schemas import (
     YCSyncStatePublic,
     Message,
 )
-from app.use_cases.use_cases.yc_directory_use_case import YCSearchFilters
+from app.use_cases.ports.yc_directory_repository import YCSearchFilters
 from app.transport.http.routes.yc.deps import YCDirectoryUseCaseDep
 
 
 router = APIRouter(prefix="/yc", tags=["yc"])
 
 
-def _require_paid_or_balance(user: User) -> None:
-    if user.plan == "free" and user.balance_cents <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Upgrade plan or top up balance to use YC directory",
-        )
+FREE_TIER_LIMIT = 15
+PAID_PAGE_SIZE = 50
+
+
+def _is_paid(user: User) -> bool:
+    return user.plan != "free" or user.balance_cents > 0
 
 
 @router.get("/companies", response_model=YCCompaniesPublic)
+@limiter.limit("2/second")
 async def list_companies(
+    request: Request,
     session: SessionDep,
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
@@ -46,10 +45,14 @@ async def list_companies(
     skip: int = 0,
     limit: int = 50,
 ) -> YCCompaniesPublic:
-    _require_paid_or_balance(current_user)
-
-    # Автоматический синк запускается в фоне и не блокирует ответ
     background_tasks.add_task(yc_uc.ensure_auto_sync)
+
+    if _is_paid(current_user):
+        skip = max(0, skip)
+        limit = min(max(1, limit), PAID_PAGE_SIZE)
+    else:
+        skip = 0
+        limit = FREE_TIER_LIMIT
 
     filters = YCSearchFilters(
         q=q,
@@ -67,18 +70,12 @@ async def list_companies(
     company_ids = [item.id for item in items]
     founders_by_company: dict[str, list[YCFounderPublic]] = {}
     if company_ids:
-        f_stmt = (
-            select(YCFounder)
-            .where(YCFounder.company_id.in_(company_ids))
-            .order_by(YCFounder.company_id, YCFounder.sort_order)
-        )
-        f_result = await session.execute(f_stmt)
-        founders = f_result.scalars().all()
+        founders = await yc_uc.get_founders_for_company_ids(company_ids)
         for f in founders:
             key = str(f.company_id)
             founders_by_company.setdefault(key, []).append(
                 YCFounderPublic(
-                    name=f.name,
+                    name=f.name or "",
                     twitter_url=f.twitter_url,
                     linkedin_url=f.linkedin_url,
                 )
@@ -104,12 +101,14 @@ async def list_companies(
             nonprofit=item.nonprofit,
             top_company=item.top_company,
             tags=item.tags,
+            industries=item.industries or [],
+            regions=item.regions or [],
             founders=founders_by_company.get(str(item.id), []),
         )
         for item in items
     ]
 
-    if current_user.plan == "pay_per_use" and data:
+    if current_user.plan == "pay_per_use" and data and _is_paid(current_user):
         current_user.balance_cents = max(0, current_user.balance_cents - 10)
         session.add(current_user)
         await session.commit()
@@ -118,12 +117,13 @@ async def list_companies(
 
 
 @router.get("/meta", response_model=YCSearchMeta)
+@limiter.limit("2/second")
 async def get_meta(
+    request: Request,
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
     yc_uc: YCDirectoryUseCaseDep,
 ) -> YCSearchMeta:
-    _require_paid_or_balance(current_user)
     background_tasks.add_task(yc_uc.ensure_auto_sync)
     meta = await yc_uc.get_meta()
     return YCSearchMeta(
@@ -132,119 +132,3 @@ async def get_meta(
         statuses=meta["statuses"],
         industries=meta["industries"],
     )
-
-
-@router.get("/export")
-async def export_csv(
-    current_user: CurrentUser,
-    session: SessionDep,
-    background_tasks: BackgroundTasks,
-    yc_uc: YCDirectoryUseCaseDep,
-) -> Response:
-    _require_paid_or_balance(current_user)
-
-    # Обновляем данные в фоне, не блокируя экспорт
-    background_tasks.add_task(yc_uc.ensure_auto_sync)
-
-    stmt = select(YCCompany).order_by(YCCompany.batch_code.desc(), YCCompany.name.asc())
-    result = await session.execute(stmt)
-    items = result.scalars().all()
-
-    headers = [
-        "id",
-        "name",
-        "slug",
-        "batch",
-        "year",
-        "status",
-        "industry",
-        "team_size",
-        "website",
-        "all_locations",
-        "one_liner",
-        "founders",
-        "founders_twitter",
-        "is_hiring",
-        "nonprofit",
-        "top_company",
-    ]
-    lines = [",".join(headers)]
-    for c in items:
-        f_stmt = (
-            select(YCFounder)
-            .where(YCFounder.company_id == c.id)
-            .order_by(YCFounder.sort_order)
-        )
-        f_result = await session.execute(f_stmt)
-        founders = f_result.scalars().all()
-        founder_names = ";".join([f.name for f in founders]).replace(",", " ")
-        founder_twitters = ";".join([f.twitter_url or "" for f in founders]).replace(",", " ")
-        row = [
-            str(c.yc_id),
-            c.name.replace(",", " "),
-            c.slug,
-            c.batch,
-            str(c.year),
-            c.status,
-            (c.industry or "").replace(",", " "),
-            str(c.team_size or ""),
-            (c.website or "").replace(",", " "),
-            (c.all_locations or "").replace(",", " "),
-            (c.one_liner or "").replace(",", " "),
-            founder_names,
-            founder_twitters,
-            "1" if c.is_hiring else "0",
-            "1" if c.nonprofit else "0",
-            "1" if c.top_company else "0",
-        ]
-        lines.append(",".join(row))
-
-    content = "\n".join(lines)
-    return Response(
-        content=content,
-        media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="yc_companies.csv"'},
-    )
-
-
-@router.post("/sync", response_model=Message)
-async def sync_now(
-    current_user: CurrentUser,
-    yc_uc: YCDirectoryUseCaseDep,
-) -> Message:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can trigger sync",
-        )
-    count = await yc_uc.sync_from_source()
-    return Message(message=f"Synced {count} YC companies")
-
-
-@router.get("/sync-state", response_model=YCSyncStatePublic)
-async def get_sync_state(
-    current_user: CurrentUser,
-    yc_uc: YCDirectoryUseCaseDep,
-) -> YCSyncStatePublic:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can view sync state",
-        )
-    state = await yc_uc.get_sync_state()
-    if not state:
-        return YCSyncStatePublic(
-            last_started_at=None,
-            last_finished_at=None,
-            last_success_at=None,
-            last_error=None,
-            last_item_count=None,
-        )
-    return YCSyncStatePublic(
-        last_started_at=state.last_started_at,
-        last_finished_at=state.last_finished_at,
-        last_success_at=state.last_success_at,
-        last_error=state.last_error,
-        last_item_count=state.last_item_count,
-    )
-

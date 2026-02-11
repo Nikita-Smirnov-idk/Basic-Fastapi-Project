@@ -73,7 +73,8 @@ async function performRequest<TResponse>(
 
     const error = new HttpError(response.status, response.statusText, errorData)
 
-    if (!skipErrorToast) {
+    const isAuthError = response.status === 401 || response.status === 403
+    if (!skipErrorToast && !isAuthError) {
       const errorMessage = getErrorMessage(error)
       toast.error(errorMessage)
     }
@@ -101,14 +102,18 @@ function formatValidationDetail(detail: unknown): string {
       }
       return String(item)
     })
-    return parts.length > 0 ? parts.join("; ") : "Ошибка валидации данных"
+    return parts.length > 0 ? parts.join("; ") : "Validation error"
   }
   if (typeof detail === "string") return detail
-  return "Ошибка валидации данных"
+  return "Validation error"
 }
 
 function getErrorMessage(error: HttpError): string {
   const { status, data } = error
+
+  if (status === 429) {
+    return "Too many requests. Please wait a moment and try again."
+  }
 
   if (typeof data === "object" && data !== null && "detail" in data) {
     const detail = (data as { detail?: unknown }).detail
@@ -122,25 +127,25 @@ function getErrorMessage(error: HttpError): string {
 
   switch (status) {
     case 400:
-      return "Неверный запрос"
+      return "Bad request"
     case 401:
-      return "Требуется авторизация"
+      return "Authentication required"
     case 403:
-      return "Доступ запрещен"
+      return "Access denied"
     case 404:
-      return "Не найдено"
+      return "Not found"
     case 409:
-      return "Конфликт данных"
+      return "Conflict"
     case 422:
-      return "Ошибка валидации данных"
+      return "Validation error"
     case 500:
-      return "Внутренняя ошибка сервера"
+      return "Internal server error"
     case 502:
-      return "Сервер недоступен"
+      return "Server unavailable"
     case 503:
-      return "Сервис временно недоступен"
+      return "Service temporarily unavailable"
     default:
-      return `Ошибка ${status}`
+      return `Error ${status}`
   }
 }
 
@@ -168,11 +173,22 @@ export async function httpRequest<TResponse, TBody = unknown>(
     credentials: "include",
   }
 
+  const isAuthPath =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/auth")
+
   try {
     const result = await performRequest<TResponse>(url, init, skipErrorToast)
     refreshFailed = false
     return result
   } catch (error) {
+    if (
+      isAuthPath &&
+      error instanceof HttpError &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      throw error
+    }
+
     const shouldTryRefresh =
       !skipTokenRefresh &&
       !refreshFailed &&
@@ -181,9 +197,9 @@ export async function httpRequest<TResponse, TBody = unknown>(
 
     if (!shouldTryRefresh) {
       if (
+        !skipErrorToast &&
         error instanceof HttpError &&
-        (error.status === 401 || error.status === 403) &&
-        !skipErrorToast
+        (error.status === 401 || error.status === 403)
       ) {
         toast.error(getErrorMessage(error))
       }
@@ -200,18 +216,23 @@ export async function httpRequest<TResponse, TBody = unknown>(
         })
         .catch((refreshErr) => {
           refreshFailed = true
-          if (!skipErrorToast) {
+          if (!skipErrorToast && !isAuthPath) {
             toast.error(
               refreshErr instanceof HttpError
                 ? getErrorMessage(refreshErr)
-                : "Не удалось обновить сессию",
+                : "Failed to refresh session",
             )
           }
-          if (
-            typeof window !== "undefined" &&
-            !window.location.pathname.startsWith("/auth")
-          ) {
-            window.location.href = "/auth/login"
+          if (typeof window !== "undefined" && !isAuthPath) {
+            const pathname = window.location.pathname
+            const isProtectedRoute =
+              pathname.startsWith("/admin") ||
+              pathname.startsWith("/health") ||
+              pathname.startsWith("/users/me") ||
+              pathname.startsWith("/yc")
+            if (isProtectedRoute) {
+              window.location.href = "/auth/login"
+            }
           }
           throw refreshErr
         })
@@ -224,9 +245,11 @@ export async function httpRequest<TResponse, TBody = unknown>(
     }
 
     try {
-      return await httpRequest<TResponse, TBody>(
-        { ...options, skipTokenRefresh: true },
-      )
+      return await httpRequest<TResponse, TBody>({
+        ...options,
+        skipTokenRefresh: true,
+        skipErrorToast: true,
+      })
     } catch (retryError) {
       if (!skipErrorToast) {
         const msg =
