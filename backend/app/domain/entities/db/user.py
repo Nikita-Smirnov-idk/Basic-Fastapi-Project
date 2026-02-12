@@ -3,6 +3,7 @@ DB models (SQLModel table=True). Used only by persistence layer and Alembic.
 Domain entities live in domain/entities; transport schemas in transport/schemas.
 """
 import uuid
+from datetime import datetime
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
@@ -20,3 +21,5 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str | None = Field(default=None)
     google_id: str | None = Field(default=None, unique=True, index=True, max_length=255)
+    created_at: datetime = Field(default_factory=datetime.now, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.now, nullable=False)

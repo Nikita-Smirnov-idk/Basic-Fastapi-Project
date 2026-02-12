@@ -62,7 +62,8 @@ async def google_callback(
         raise HTTPException(status_code=403, detail=str(e))
 
     response = RedirectResponse(
-        url=f"{settings.FRONTEND_HOST}/auth/callback?token={tokens_data['access_token']}"
+        url=f"{settings.FRONTEND_HOST}/"
     )
+    cookie.set_access_in_cookie(response, tokens_data["access_token"])
     cookie.set_refresh_in_cookie(response, tokens_data["refresh_token"])
     return response
