@@ -115,17 +115,17 @@ class TokenService(ITokenService):
         return payload
     
     def compare_refresh_payload_and_stored_data(self, payload: dict[str, Any], stored_data: dict[str, Any] | None) -> None:
-        """Validate User user_id/jti/family_id. Raises ValueError on invalid/expired/wrong-type."""
+        """Validate refresh payload. Raises ValueError when there is a difference."""
         if not stored_data:
             raise ValueError("Invalid Token")
         
         payload_user_id = str(payload.get("sub"))
         payload_jti = str(payload.get("jti"))
-        payload_family_id = str(payload.get("family_id"))
+        payload_user_agent = str(payload.get("user_agent"))
 
         stored_user_id = str(stored_data.get("sub"))
-        stored_jti = str(stored_data.get("jti"))
-        stored_family_id = str(stored_data.get("family_id"))
+        stored_jti = str(stored_data.get("current_jti"))
+        stored_user_agent = str(stored_data.get("user_agent"))
 
         if not stored_user_id or stored_user_id != payload_user_id:
             raise ValueError("Invalid Token")
@@ -133,7 +133,7 @@ class TokenService(ITokenService):
         if not stored_jti or stored_jti != payload_jti:
             raise ValueError("Invalid Token")
         
-        if not stored_family_id or stored_family_id != payload_family_id:
+        if not stored_user_agent or stored_user_agent != payload_user_agent:
             raise ValueError("Invalid Token")
         
 

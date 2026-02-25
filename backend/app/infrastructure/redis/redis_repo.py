@@ -13,9 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedisRepository:
-    REFRESH_PREFIX = "refresh:"
     FAMILY_PREFIX = "family:"
-    REFRESH_BLOCKLIST_PREFIX = "refresh_block:"
     USER_SESSIONS_PREFIX = "user_sessions:"
 
     TOKEN_PEPPER = settings.TOKEN_PEPPER
@@ -44,6 +42,8 @@ class RedisRepository:
             )
             if not family_old_data:
                 family_data = {
+                    "sub": user_id,
+                    "current_jti": jti,
                     "user_agent": user_agent,
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
                     "last_active": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -52,6 +52,8 @@ class RedisRepository:
             else:
                 parsed = json.loads(family_old_data)
                 family_data = {
+                    "sub": parsed["sub"],
+                    "current_jti": jti,
                     "user_agent": parsed["user_agent"],
                     "created_at": parsed["created_at"],
                     "last_active": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -67,17 +69,6 @@ class RedisRepository:
             user_sessions_key = self.USER_SESSIONS_PREFIX + user_id
             pipe.sadd(user_sessions_key, family_id)
             pipe.expire(user_sessions_key, self.EXPIRE_TIME)
-            data = {
-                "sub": user_id,
-                "user_agent": user_agent,
-                "family_id": family_id,
-                "jti": jti,
-            }
-            pipe.set(
-                self.REFRESH_PREFIX + jti,
-                json.dumps(data),
-                ex=self.EXPIRE_TIME,
-            )
             await pipe.execute()
             return family_id
         except (ConnectionError, TimeoutError, RedisError) as e:
@@ -87,9 +78,9 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def get_refresh_data(self, jti: str) -> dict | None:
+    async def get_family_data(self, family_id: str) -> dict | None:
         try:
-            raw_data = await self.redis_client.get(self.REFRESH_PREFIX + jti)
+            raw_data = await self.redis_client.get(self.FAMILY_PREFIX + family_id)
             if raw_data:
                 return json.loads(raw_data)
             return None
@@ -100,47 +91,6 @@ class RedisRepository:
                 detail="Service unavailable. Please try again later.",
             ) from e
 
-    async def block_refresh(self, jti: str) -> None:
-        try:
-            await self.redis_client.set(
-                self.REFRESH_BLOCKLIST_PREFIX + jti,
-                "blocked",
-                ex=self.EXPIRE_TIME,
-            )
-        except (ConnectionError, TimeoutError, RedisError) as e:
-            logger.warning("Redis error: %s", type(e).__name__)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service unavailable. Please try again later.",
-            ) from e
-
-    async def try_block_refresh(self, jti: str) -> bool:
-        """Atomically set block key only if not exists (NX). Returns True if we claimed the token, False if already blocked (e.g. concurrent reuse)."""
-        try:
-            key = self.REFRESH_BLOCKLIST_PREFIX + jti
-            result = await self.redis_client.set(
-                key, "blocked", ex=self.EXPIRE_TIME, nx=True
-            )
-            return result is True
-        except (ConnectionError, TimeoutError, RedisError) as e:
-            logger.warning("Redis error: %s", type(e).__name__)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service unavailable. Please try again later.",
-            ) from e
-
-    async def is_refresh_blocked(self, jti: str) -> bool:
-        try:
-            exists = await self.redis_client.exists(
-                self.REFRESH_BLOCKLIST_PREFIX + jti
-            )
-            return exists > 0
-        except (ConnectionError, TimeoutError, RedisError) as e:
-            logger.warning("Redis error: %s", type(e).__name__)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service unavailable. Please try again later.",
-            ) from e
 
     async def block_family(self, family_id: str, user_id: str) -> None:
         try:
