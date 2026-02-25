@@ -2,10 +2,12 @@ from fastapi import Response
 
 from app.core.config.config import settings
 
-def delete_cookie(response: Response, key: str) -> Response:
+REFRESH_COOKIE_PATH=settings.API_V1_STR + "/users/auth"
+
+def delete_cookie(response: Response, key: str, path: str = "/") -> Response:
     response.delete_cookie(
         key=key,
-        path="/",
+        path=path,
         secure=settings.IS_PROD,
         samesite="Lax",
     )
@@ -13,7 +15,7 @@ def delete_cookie(response: Response, key: str) -> Response:
 
 
 def set_cookie(
-    response: Response, key: str, value: str, max_age: int
+    *, response: Response, key: str, value: str, max_age: int, path: str = "/",
 ) -> Response:
     response.set_cookie(
         key=key,
@@ -22,21 +24,22 @@ def set_cookie(
         secure=settings.IS_PROD,
         samesite="Lax",
         max_age=max_age,
-        path="/",
+        path=path,
     )
     return response
 
 
 def delete_refresh_from_cookie(response: Response) -> Response:
-    return delete_cookie(response, "refresh_token")
+    return delete_cookie(response, "refresh_token", REFRESH_COOKIE_PATH)
 
 
 def set_refresh_in_cookie(response: Response, refresh_token: str) -> Response:
     return set_cookie(
-        response,
-        "refresh_token",
-        refresh_token,
+        response=response,
+        key="refresh_token",
+        value=refresh_token,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path=REFRESH_COOKIE_PATH,
     )
 
 
@@ -46,8 +49,8 @@ def delete_access_from_cookie(response: Response) -> Response:
 
 def set_access_in_cookie(response: Response, access_token: str) -> Response:
     return set_cookie(
-        response,
-        "access_token",
-        access_token,
+        response=response,
+        key="access_token",
+        value=access_token,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )

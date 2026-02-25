@@ -1,25 +1,18 @@
 """In-memory fake for IRefreshTokenStore. Used in tests to avoid Redis event loop conflicts with TestClient."""
-import uuid
 from datetime import datetime
 from typing import Any
 
-from app.core.config.config import settings
 from app.use_cases.ports.refresh_store import IRefreshTokenStore
 
 
 class FakeRefreshStore(IRefreshTokenStore):
     """In-memory implementation for tests. Avoids Redis/event loop issues with Starlette TestClient."""
 
-    REFRESH_PREFIX = "refresh:"
     FAMILY_PREFIX = "family:"
-    REFRESH_BLOCKLIST_PREFIX = "refresh_block:"
     USER_SESSIONS_PREFIX = "user_sessions:"
-    EXPIRE_TIME = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
 
     def __init__(self) -> None:
-        self._refresh: dict[str, dict] = {}
         self._families: dict[str, dict] = {}
-        self._blocked: set[str] = set()
         self._user_sessions: dict[str, set[str]] = {}
 
     async def store_refresh_token(
@@ -29,13 +22,13 @@ class FakeRefreshStore(IRefreshTokenStore):
         jti: str,
         family_id: str,
     ) -> str:
-        family_data: dict
-
         family_old_data = self._families.get(
             self.FAMILY_PREFIX + family_id
         )
         if not family_old_data:
             family_data = {
+                "sub": user_id,
+                "current_jti": jti,
                 "user_agent": user_agent,
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "last_active": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -43,6 +36,8 @@ class FakeRefreshStore(IRefreshTokenStore):
             }
         else:
             family_data = {
+                "sub": family_old_data["sub"],
+                "current_jti": jti,
                 "user_agent": family_old_data["user_agent"],
                 "created_at": family_old_data["created_at"],
                 "last_active": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -53,30 +48,10 @@ class FakeRefreshStore(IRefreshTokenStore):
         if user_sessions_key not in self._user_sessions:
             self._user_sessions[user_sessions_key] = set()
         self._user_sessions[user_sessions_key].add(family_id)
-        data = {
-            "sub": user_id,
-            "user_agent": user_agent,
-            "family_id": family_id,
-            "jti": jti,
-        }
-        self._refresh[self.REFRESH_PREFIX + jti] = data
         return family_id
 
-    async def get_refresh_data(self, jti: str) -> dict[str, Any] | None:
-        return self._refresh.get(self.REFRESH_PREFIX + jti)
-
-    async def block_refresh(self, jti: str) -> None:
-        self._blocked.add(self.REFRESH_BLOCKLIST_PREFIX + jti)
-
-    async def try_block_refresh(self, jti: str) -> bool:
-        key = self.REFRESH_BLOCKLIST_PREFIX + jti
-        if key in self._blocked:
-            return False
-        self._blocked.add(key)
-        return True
-
-    async def is_refresh_blocked(self, jti: str) -> bool:
-        return (self.REFRESH_BLOCKLIST_PREFIX + jti) in self._blocked
+    async def get_family_data(self, family_id: str) -> dict[str, Any] | None:
+        return self._families.get(self.FAMILY_PREFIX + family_id)
 
     async def block_family(self, family_id: str, user_id: str) -> None:
         user_sessions_key = self.USER_SESSIONS_PREFIX + user_id

@@ -34,7 +34,7 @@ class ITokenService(ABC):
 
     @abstractmethod
     def compare_refresh_payload_and_stored_data(self, payload: dict[str, Any], stored_data: dict[str, Any] | None) -> None:
-        """Validate User user_id/jti/family_id. Raises ValueError on invalid/expired/wrong-type."""
+        """Validate refresh payload. Raises ValueError when there is a difference."""
         ...
 
     @abstractmethod
